@@ -158,7 +158,7 @@
   const tableSteps = document.getElementById("recordsTableSteps");
   const tablePeak = document.getElementById("recordsTablePeak");
 
-  const MAX_RANGE_SIZE = 5000000;
+  const MAX_RANGE_END = 20000000;
   const scatterChart = Charts.ScatterChart(document.getElementById("scatterChart"), document.getElementById("scatterTooltip"));
   let scatterMode = "steps";
   let lastTopSteps = [];
@@ -238,8 +238,8 @@
       scanError.textContent = "Enter a valid range where start ≤ end and start ≥ 1.";
       return;
     }
-    if (end - start + 1 > MAX_RANGE_SIZE) {
-      scanError.textContent = `Range too large for a browser tab — please keep it under ${MAX_RANGE_SIZE.toLocaleString()} numbers.`;
+    if (end > MAX_RANGE_END) {
+      scanError.textContent = `End is capped at ${MAX_RANGE_END.toLocaleString()} — the scanner's memoization cache is sized to it, so going higher would use too much memory for a browser tab.`;
       return;
     }
     if (!Number.isFinite(stepLimit) || stepLimit < 10) {
