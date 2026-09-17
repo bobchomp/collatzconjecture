@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [claude/elegant-galileo-suaftx]
+    branches: [main]
   workflow_dispatch: {}
 
 permissions:
