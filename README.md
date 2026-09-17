@@ -13,14 +13,18 @@ here or anywhere else, for every value checked so far).
 
 ## Running it
 
-No build step or dependencies — it's static HTML/CSS/JS. Serve the folder
-with any static file server (a `file://` URL won't work because the range
-scanner uses a Web Worker, which browsers block from `file://` origins):
+No build step — it's static HTML/CSS/JS. Serve the folder with any static
+file server (a `file://` URL won't work because the range scanner uses a
+Web Worker, which browsers block from `file://` origins):
 
 ```sh
 python3 -m http.server 8080
 # then open http://localhost:8080
 ```
+
+The app is gated behind sign-in (Supabase Auth, no public sign-up — see
+`supabase/README.md`), mainly so a per-account server config can sync
+across browsers instead of living only in one browser's localStorage.
 
 ## Features
 
@@ -42,6 +46,9 @@ python3 -m http.server 8080
 - `js/collatz.js` — core Collatz math, shared by the main thread and worker
 - `js/worker.js` — background range-scan worker
 - `js/charts.js` — small canvas chart toolkit (line + scatter, with hover)
+- `js/auth.js` — Supabase Auth gate (sign-in, sign-out, session state)
 - `js/app.js` — UI wiring
 - `server/` — optional self-hosted backend for ranges above 100,000,000
   (see `server/README.md` for deployment)
+- `supabase/` — auth + per-account server-config storage
+  (see `supabase/README.md` for one-time dashboard setup)

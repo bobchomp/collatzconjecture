@@ -11,7 +11,25 @@
 <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <div class="page">
+  <div class="auth-gate" id="authGate">
+    <div class="auth-gate-panel">
+      <h1>Collatz Conjecture Explorer</h1>
+      <p class="auth-gate-sub">Sign in to continue. Accounts are created manually — there's no self sign-up.</p>
+      <form id="authForm">
+        <label class="field-label" for="authEmail">Email</label>
+        <input id="authEmail" type="email" autocomplete="username" required />
+        <label class="field-label" for="authPassword" style="margin-top:10px">Password</label>
+        <input id="authPassword" type="password" autocomplete="current-password" />
+        <button id="authSignInBtn" class="btn" type="submit" style="margin-top:14px; width:100%">Sign in</button>
+      </form>
+      <button id="authMagicLinkBtn" class="btn-ghost btn" type="button" style="width:100%; margin-top:8px">
+        Email me a sign-in link instead
+      </button>
+      <p class="error-text" id="authStatus"></p>
+    </div>
+  </div>
+
+  <div class="page" id="pageContent" hidden>
     <header class="topbar">
       <div class="brand">
         <h1>Collatz Conjecture Explorer</h1>
@@ -20,6 +38,7 @@
       <div class="topbar-actions">
         <button id="settingsBtn" class="theme-toggle" type="button" aria-haspopup="dialog">⚙ Settings</button>
         <button id="themeToggle" class="theme-toggle" type="button">Theme: System</button>
+        <button id="signOutBtn" class="theme-toggle" type="button">Sign out</button>
       </div>
     </header>
 
@@ -233,8 +252,10 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/collatz.js"></script>
   <script src="js/charts.js"></script>
+  <script src="js/auth.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

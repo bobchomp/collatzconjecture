@@ -181,30 +181,53 @@
   const serverSaveBtn = document.getElementById("serverSaveBtn");
   const serverClearBtn = document.getElementById("serverClearBtn");
   const serverSettingsStatus = document.getElementById("serverSettingsStatus");
-  const SERVER_CONFIG_KEY = "collatz-server-config";
+
+  // Server config lives in Supabase (server_configs table, RLS-scoped to
+  // the signed-in user) so it syncs across browsers/devices. This is an
+  // in-memory mirror of that row -- populated on sign-in via
+  // window.CollatzApp.onSignedIn(), read synchronously everywhere else.
+  let serverConfigCache = null;
 
   function loadServerConfig() {
-    try {
-      const raw = localStorage.getItem(SERVER_CONFIG_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch (e) {
-      return null;
-    }
+    return serverConfigCache;
   }
 
-  function saveServerConfigToStorage(cfg) {
-    try {
-      localStorage.setItem(SERVER_CONFIG_KEY, JSON.stringify(cfg));
-    } catch (e) {
-      /* private-browsing storage can throw; config just won't persist */
-    }
+  async function fetchServerConfigFromSupabase() {
+    const client = window.CollatzAuth && window.CollatzAuth.client;
+    if (!client) return null;
+    const { data: userData } = await client.auth.getUser();
+    if (!userData || !userData.user) return null;
+    const { data, error } = await client
+      .from("server_configs")
+      .select("url, password, max_range_end")
+      .eq("user_id", userData.user.id)
+      .maybeSingle();
+    if (error || !data) return null;
+    return { url: data.url, password: data.password, maxRangeEnd: Number(data.max_range_end) };
   }
 
-  function clearServerConfigFromStorage() {
-    try {
-      localStorage.removeItem(SERVER_CONFIG_KEY);
-    } catch (e) {
-      /* ignore */
+  async function saveServerConfigToStorage(cfg) {
+    serverConfigCache = cfg;
+    const client = window.CollatzAuth && window.CollatzAuth.client;
+    if (!client) return;
+    const { data: userData } = await client.auth.getUser();
+    if (!userData || !userData.user) return;
+    await client.from("server_configs").upsert({
+      user_id: userData.user.id,
+      url: cfg.url,
+      password: cfg.password,
+      max_range_end: cfg.maxRangeEnd,
+      updated_at: new Date().toISOString(),
+    });
+  }
+
+  async function clearServerConfigFromStorage() {
+    serverConfigCache = null;
+    const client = window.CollatzAuth && window.CollatzAuth.client;
+    if (!client) return;
+    const { data: userData } = await client.auth.getUser();
+    if (userData && userData.user) {
+      await client.from("server_configs").delete().eq("user_id", userData.user.id);
     }
   }
 
@@ -251,7 +274,7 @@
       // Drain the tiny test scan's SSE body so the connection closes cleanly.
       if (authResp.body) await authResp.body.cancel().catch(() => {});
 
-      saveServerConfigToStorage({ url, password, maxRangeEnd: health.maxRangeEnd });
+      await saveServerConfigToStorage({ url, password, maxRangeEnd: health.maxRangeEnd });
       serverPasswordInput.value = "";
       refreshServerUI();
       serverSettingsStatus.textContent = "";
@@ -267,8 +290,8 @@
     }
   });
 
-  serverClearBtn.addEventListener("click", () => {
-    clearServerConfigFromStorage();
+  serverClearBtn.addEventListener("click", async () => {
+    await clearServerConfigFromStorage();
     serverUrlInput.value = "";
     serverPasswordInput.value = "";
     serverSettingsStatus.style.color = "";
@@ -276,11 +299,23 @@
     refreshServerUI();
   });
 
-  (function initServerUI() {
-    const cfg = loadServerConfig();
-    if (cfg) serverUrlInput.value = cfg.url;
-    refreshServerUI();
-  })();
+  refreshServerUI();
+
+  // Called by js/auth.js on sign-in/sign-out.
+  window.CollatzApp = {
+    onSignedIn: async () => {
+      serverConfigCache = await fetchServerConfigFromSupabase();
+      if (serverConfigCache) serverUrlInput.value = serverConfigCache.url;
+      refreshServerUI();
+    },
+    onSignedOut: () => {
+      serverConfigCache = null;
+      serverUrlInput.value = "";
+      serverPasswordInput.value = "";
+      serverSettingsStatus.textContent = "";
+      refreshServerUI();
+    },
+  };
 
   function fmtElapsed(ms) {
     if (ms < 1000) return ms.toFixed(0) + "ms";
