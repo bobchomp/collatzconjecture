@@ -60,6 +60,27 @@
       </div>
       <p class="error-text" id="scanError"></p>
 
+      <details class="server-settings" id="serverSettings">
+        <summary id="serverSettingsSummary">Server: not configured (ranges capped at 100,000,000)</summary>
+        <div class="server-settings-form">
+          <div style="flex:1; min-width:220px">
+            <label class="field-label" for="serverUrlInput">Server URL</label>
+            <input id="serverUrlInput" type="text" placeholder="https://collatz-scan.example.com" autocomplete="off" />
+          </div>
+          <div style="flex:1; min-width:180px">
+            <label class="field-label" for="serverPasswordInput">Password</label>
+            <input id="serverPasswordInput" type="password" autocomplete="off" />
+          </div>
+          <button id="serverSaveBtn" class="btn-preset" type="button">Save &amp; test</button>
+          <button id="serverClearBtn" class="btn-preset" type="button">Clear</button>
+        </div>
+        <p class="error-text" id="serverSettingsStatus"></p>
+        <p class="server-settings-hint">
+          Ranges up to 100,000,000 always run locally in your browser. A configured server is only
+          used for ranges above that, up to whatever limit it reports.
+        </p>
+      </details>
+
       <div class="progress-track" id="progressTrack" hidden>
         <div class="progress-fill" id="progressFill"></div>
       </div>

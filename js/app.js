@@ -161,7 +161,7 @@
   const tableSteps = document.getElementById("recordsTableSteps");
   const tablePeak = document.getElementById("recordsTablePeak");
 
-  const MAX_RANGE_END = 100000000;
+  const LOCAL_MAX_RANGE_END = 100000000;
   const scatterChart = Charts.ScatterChart(document.getElementById("scatterChart"), document.getElementById("scatterTooltip"));
   let scatterMode = "steps";
   let lastTopSteps = [];
@@ -170,6 +170,117 @@
   let scanPointsPeak = [];
 
   let worker = null;
+  let scanStartTime = 0;
+  let stopCurrentScan = null; // set to whichever stop mechanism the active scan uses
+
+  // ---------- Optional remote server (for ranges above LOCAL_MAX_RANGE_END) ----------
+  const serverSettings = document.getElementById("serverSettings");
+  const serverSettingsSummary = document.getElementById("serverSettingsSummary");
+  const serverUrlInput = document.getElementById("serverUrlInput");
+  const serverPasswordInput = document.getElementById("serverPasswordInput");
+  const serverSaveBtn = document.getElementById("serverSaveBtn");
+  const serverClearBtn = document.getElementById("serverClearBtn");
+  const serverSettingsStatus = document.getElementById("serverSettingsStatus");
+  const SERVER_CONFIG_KEY = "collatz-server-config";
+
+  function loadServerConfig() {
+    try {
+      const raw = localStorage.getItem(SERVER_CONFIG_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveServerConfigToStorage(cfg) {
+    try {
+      localStorage.setItem(SERVER_CONFIG_KEY, JSON.stringify(cfg));
+    } catch (e) {
+      /* private-browsing storage can throw; config just won't persist */
+    }
+  }
+
+  function clearServerConfigFromStorage() {
+    try {
+      localStorage.removeItem(SERVER_CONFIG_KEY);
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  function refreshServerUI() {
+    const cfg = loadServerConfig();
+    if (cfg) {
+      serverSettingsSummary.textContent =
+        `Server: ${cfg.url} (ranges up to ${cfg.maxRangeEnd.toLocaleString()})`;
+      rangeEnd.max = String(cfg.maxRangeEnd);
+    } else {
+      serverSettingsSummary.textContent = "Server: not configured (ranges capped at 100,000,000)";
+      rangeEnd.max = String(LOCAL_MAX_RANGE_END);
+    }
+  }
+
+  function getEffectiveMaxEnd() {
+    const cfg = loadServerConfig();
+    return cfg ? cfg.maxRangeEnd : LOCAL_MAX_RANGE_END;
+  }
+
+  serverSaveBtn.addEventListener("click", async () => {
+    const url = serverUrlInput.value.trim().replace(/\/+$/, "");
+    const password = serverPasswordInput.value;
+    serverSettingsStatus.textContent = "";
+    if (!url || !password) {
+      serverSettingsStatus.textContent = "Enter both a server URL and a password.";
+      return;
+    }
+    serverSaveBtn.disabled = true;
+    serverSaveBtn.textContent = "Testing…";
+    try {
+      const healthResp = await fetch(url + "/health");
+      if (!healthResp.ok) throw new Error("Server responded with " + healthResp.status);
+      const health = await healthResp.json();
+
+      const authResp = await fetch(url + "/scan?start=1&end=1&stepLimit=10", {
+        headers: { "X-Scan-Password": password },
+      });
+      if (authResp.status === 401) throw new Error("Wrong password.");
+      if (!authResp.ok) {
+        const body = await authResp.json().catch(() => ({}));
+        throw new Error(body.error || "Server responded with " + authResp.status);
+      }
+      // Drain the tiny test scan's SSE body so the connection closes cleanly.
+      if (authResp.body) await authResp.body.cancel().catch(() => {});
+
+      saveServerConfigToStorage({ url, password, maxRangeEnd: health.maxRangeEnd });
+      serverPasswordInput.value = "";
+      refreshServerUI();
+      serverSettingsStatus.textContent = "";
+      serverSettingsStatus.style.color = "var(--good-text)";
+      serverSettingsStatus.textContent = `Connected — this server accepts ranges up to ${health.maxRangeEnd.toLocaleString()}.`;
+    } catch (err) {
+      serverSettingsStatus.style.color = "var(--critical)";
+      serverSettingsStatus.textContent =
+        "Couldn't connect: " + (err.message || "unknown error") + " (check the URL and that the server is reachable).";
+    } finally {
+      serverSaveBtn.disabled = false;
+      serverSaveBtn.textContent = "Save & test";
+    }
+  });
+
+  serverClearBtn.addEventListener("click", () => {
+    clearServerConfigFromStorage();
+    serverUrlInput.value = "";
+    serverPasswordInput.value = "";
+    serverSettingsStatus.style.color = "";
+    serverSettingsStatus.textContent = "";
+    refreshServerUI();
+  });
+
+  (function initServerUI() {
+    const cfg = loadServerConfig();
+    if (cfg) serverUrlInput.value = cfg.url;
+    refreshServerUI();
+  })();
 
   function fmtElapsed(ms) {
     if (ms < 1000) return ms.toFixed(0) + "ms";
@@ -242,8 +353,16 @@
       scanError.textContent = "Enter a valid range where start ≤ end and start ≥ 1.";
       return;
     }
-    if (end > MAX_RANGE_END) {
-      scanError.textContent = `End is capped at ${MAX_RANGE_END.toLocaleString()} — the scanner's memoization cache is sized to it, so going higher would use too much memory for a browser tab.`;
+    const serverCfg = loadServerConfig();
+    const needsServer = end > LOCAL_MAX_RANGE_END;
+    if (needsServer && !serverCfg) {
+      scanError.textContent =
+        `End is capped at ${LOCAL_MAX_RANGE_END.toLocaleString()} for in-browser scans — configure a server below to go higher.`;
+      return;
+    }
+    const effectiveMax = getEffectiveMaxEnd();
+    if (end > effectiveMax) {
+      scanError.textContent = `End is capped at ${effectiveMax.toLocaleString()} by your configured server.`;
       return;
     }
     if (!Number.isFinite(stepLimit) || stepLimit < 10) {
@@ -270,11 +389,83 @@
     progressFill.style.width = "0%";
 
     setScanningUI(true);
+    scanStartTime = Date.now();
 
-    if (worker) worker.terminate();
-    worker = new Worker("js/worker.js");
-    worker.onmessage = (e) => handleWorkerMessage(e.data, start, end);
-    worker.postMessage({ type: "start", start, end, stepLimit });
+    if (needsServer) {
+      runRemoteScan(serverCfg, start, end, stepLimit);
+    } else {
+      if (worker) worker.terminate();
+      worker = new Worker("js/worker.js");
+      worker.onmessage = (e) => handleWorkerMessage(e.data, start, end);
+      stopCurrentScan = () => worker.postMessage({ type: "stop" });
+      worker.postMessage({ type: "start", start, end, stepLimit });
+    }
+  }
+
+  async function runRemoteScan(serverCfg, start, end, stepLimit) {
+    const controller = new AbortController();
+    stopCurrentScan = () => controller.abort();
+
+    const qs = `start=${start}&end=${end}&stepLimit=${stepLimit}`;
+    let response;
+    try {
+      response = await fetch(`${serverCfg.url}/scan?${qs}`, {
+        headers: { "X-Scan-Password": serverCfg.password },
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (err.name === "AbortError") {
+        setScanningUI(false);
+        progressElapsed.textContent = fmtElapsed(Date.now() - scanStartTime) + " (stopped)";
+        return;
+      }
+      setScanningUI(false);
+      scanError.textContent = "Couldn't reach the server — check it's online and the URL is correct.";
+      return;
+    }
+
+    if (!response.ok) {
+      setScanningUI(false);
+      const body = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        scanError.textContent = "Server rejected the password — update it in the server settings below.";
+      } else {
+        scanError.textContent = body.error || `Server responded with ${response.status}.`;
+      }
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let sepIndex;
+        while ((sepIndex = buffer.indexOf("\n\n")) !== -1) {
+          const block = buffer.slice(0, sepIndex);
+          buffer = buffer.slice(sepIndex + 2);
+          const eventMatch = block.match(/^event: (.+)$/m);
+          const dataMatch = block.match(/^data: (.+)$/m);
+          if (!eventMatch || !dataMatch) continue;
+          const type = eventMatch[1];
+          const data = JSON.parse(dataMatch[1]);
+          handleWorkerMessage({ type, ...data }, start, end);
+        }
+      }
+    } catch (err) {
+      if (err.name === "AbortError") {
+        setScanningUI(false);
+        progressElapsed.textContent = fmtElapsed(Date.now() - scanStartTime) + " (stopped)";
+      } else {
+        setScanningUI(false);
+        scanError.textContent = "Lost connection to the server mid-scan.";
+      }
+    }
   }
 
   function handleWorkerMessage(msg, start, end) {
@@ -341,7 +532,7 @@
 
   scanBtn.addEventListener("click", startScan);
   stopBtn.addEventListener("click", () => {
-    if (worker) worker.postMessage({ type: "stop" });
+    if (stopCurrentScan) stopCurrentScan();
   });
 
   // ---------- Chart "expand" popup ----------

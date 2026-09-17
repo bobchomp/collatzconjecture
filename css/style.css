@@ -489,6 +489,35 @@ details.sequence-list summary {
   min-height: 1.2em;
 }
 
+.server-settings {
+  margin: 6px 0 10px;
+}
+
+.server-settings summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.server-settings summary:hover {
+  color: var(--text-primary);
+}
+
+.server-settings-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+  margin-top: 10px;
+}
+
+.server-settings-hint {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  margin: 8px 0 0;
+  max-width: 60ch;
+}
+
 .progress-track {
   height: 8px;
   border-radius: 999px;

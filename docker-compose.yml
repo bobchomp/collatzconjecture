@@ -1,0 +1,29 @@
+services:
+  collatz-scan-server:
+    build: ./server
+    container_name: collatz-scan-server
+    restart: unless-stopped
+    ports:
+      - "3939:3939"
+    environment:
+      SCAN_API_PASSWORD: ${SCAN_API_PASSWORD:?set SCAN_API_PASSWORD in your .env file}
+      MAX_RANGE_END: ${MAX_RANGE_END:-1000000000}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://collatz.rossmackenzie.co.uk,https://bobchomp.github.io}
+    # A 1B-number scan needs ~6GB just for its cache arrays (see
+    # server/README.md). Lower MAX_RANGE_END above if you lower this.
+    mem_limit: 8g
+
+  # Optional: exposes the server above to the internet over HTTPS
+  # without opening any ports on your router. Get TUNNEL_TOKEN by
+  # creating a tunnel in the Cloudflare Zero Trust dashboard -- see
+  # server/README.md for the exact steps. Remove this whole service
+  # if you'd rather expose collatz-scan-server some other way.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: collatz-scan-tunnel
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set TUNNEL_TOKEN in your .env file, see server/README.md}
+    depends_on:
+      - collatz-scan-server

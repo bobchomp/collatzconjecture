@@ -30,7 +30,9 @@ python3 -m http.server 8080
 - **Verify a range** — scan every integer in `[start, end]` off the main
   thread, with a live progress bar, a scatter chart of steps/peak per
   starting number, and tables of the top 10 longest trajectories and
-  highest peaks found.
+  highest peaks found. Ranges up to 100,000,000 run entirely in-browser;
+  above that, an optional self-hosted server (see `server/README.md`) takes
+  over, up to whatever range it's configured to allow.
 
 ## Files
 
@@ -40,3 +42,5 @@ python3 -m http.server 8080
 - `js/worker.js` — background range-scan worker
 - `js/charts.js` — small canvas chart toolkit (line + scatter, with hover)
 - `js/app.js` — UI wiring
+- `server/` — optional self-hosted backend for ranges above 100,000,000
+  (see `server/README.md` for deployment)
