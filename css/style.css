@@ -107,11 +107,6 @@ body {
   margin: 0 0 20px;
 }
 
-.auth-gate-panel input[type="email"],
-.auth-gate-panel input[type="password"] {
-  width: 100%;
-}
-
 .topbar {
   display: flex;
   align-items: flex-start;
@@ -203,7 +198,9 @@ body {
 }
 
 input[type="text"],
-input[type="number"] {
+input[type="number"],
+input[type="email"],
+input[type="password"] {
   font: inherit;
   padding: 8px 10px;
   border-radius: 8px;
@@ -214,7 +211,9 @@ input[type="number"] {
 }
 
 input[type="text"]:focus,
-input[type="number"]:focus {
+input[type="number"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus {
   outline: 2px solid var(--series-1);
   outline-offset: 1px;
 }
