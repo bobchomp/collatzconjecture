@@ -161,7 +161,7 @@
   const tableSteps = document.getElementById("recordsTableSteps");
   const tablePeak = document.getElementById("recordsTablePeak");
 
-  const MAX_RANGE_END = 20000000;
+  const MAX_RANGE_END = 100000000;
   const scatterChart = Charts.ScatterChart(document.getElementById("scatterChart"), document.getElementById("scatterTooltip"));
   let scatterMode = "steps";
   let lastTopSteps = [];
