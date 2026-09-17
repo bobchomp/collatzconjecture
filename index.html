@@ -32,60 +32,6 @@
       </div>
     </section>
 
-    <section class="card" id="explorerCard">
-      <h2>Explore a number</h2>
-      <p class="section-desc">Enter any positive integer (as large as you like) and watch its trajectory, a.k.a. "hailstone sequence."</p>
-
-      <div class="row" style="align-items:flex-end">
-        <div style="flex:1; min-width:220px">
-          <label class="field-label" for="numberInput">Starting number</label>
-          <input id="numberInput" type="text" inputmode="numeric" value="27" autocomplete="off" />
-        </div>
-        <button id="exploreBtn" class="btn" type="button">Trace it</button>
-      </div>
-      <div class="row" style="margin-top:10px">
-        <button class="btn-preset" data-preset="27" type="button">27</button>
-        <button class="btn-preset" data-preset="97" type="button">97</button>
-        <button class="btn-preset" data-preset="6171" type="button">6,171</button>
-        <button class="btn-preset" data-preset="837799" type="button">837,799</button>
-        <button class="btn-preset" data-preset="random" type="button">Random</button>
-      </div>
-      <p class="error-text" id="explorerError"></p>
-
-      <div class="stat-row" id="explorerStats" hidden>
-        <div class="stat-tile">
-          <div class="label">Steps to reach 1</div>
-          <div class="value" id="statSteps">–</div>
-        </div>
-        <div class="stat-tile">
-          <div class="label">Peak value</div>
-          <div class="value small" id="statPeak">–</div>
-        </div>
-        <div class="stat-tile">
-          <div class="label">Peak / start ratio</div>
-          <div class="value" id="statRatio">–</div>
-        </div>
-        <div class="stat-tile">
-          <div class="label">Result</div>
-          <div class="value" id="statResult">–</div>
-        </div>
-      </div>
-
-      <div class="chart-controls" id="chartControls" hidden>
-        <span class="legend-line"><span class="legend-swatch"></span> Trajectory value</span>
-        <button class="toggle-chip" id="logToggle" type="button" aria-pressed="false">Log scale</button>
-      </div>
-      <div class="chart-wrap" id="lineChartWrap" hidden>
-        <canvas id="lineChart"></canvas>
-        <div class="tooltip" id="lineTooltip" hidden></div>
-      </div>
-
-      <details class="sequence-list" id="sequenceDetails" hidden>
-        <summary>Show full sequence</summary>
-        <div class="sequence-values" id="sequenceValues"></div>
-      </details>
-    </section>
-
     <section class="card" id="scannerCard">
       <h2>Verify a range</h2>
       <p class="section-desc">
@@ -162,6 +108,60 @@
         <thead><tr><th>Starting number</th><th>Peak value</th></tr></thead>
         <tbody></tbody>
       </table>
+    </section>
+
+    <section class="card" id="explorerCard">
+      <h2>Explore a number</h2>
+      <p class="section-desc">Enter any positive integer (as large as you like) and watch its trajectory, a.k.a. "hailstone sequence."</p>
+
+      <div class="row" style="align-items:flex-end">
+        <div style="flex:1; min-width:220px">
+          <label class="field-label" for="numberInput">Starting number</label>
+          <input id="numberInput" type="text" inputmode="numeric" value="27" autocomplete="off" />
+        </div>
+        <button id="exploreBtn" class="btn" type="button">Trace it</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn-preset" data-preset="27" type="button">27</button>
+        <button class="btn-preset" data-preset="97" type="button">97</button>
+        <button class="btn-preset" data-preset="6171" type="button">6,171</button>
+        <button class="btn-preset" data-preset="837799" type="button">837,799</button>
+        <button class="btn-preset" data-preset="random" type="button">Random</button>
+      </div>
+      <p class="error-text" id="explorerError"></p>
+
+      <div class="stat-row" id="explorerStats" hidden>
+        <div class="stat-tile">
+          <div class="label">Steps to reach 1</div>
+          <div class="value" id="statSteps">–</div>
+        </div>
+        <div class="stat-tile">
+          <div class="label">Peak value</div>
+          <div class="value small" id="statPeak">–</div>
+        </div>
+        <div class="stat-tile">
+          <div class="label">Peak / start ratio</div>
+          <div class="value" id="statRatio">–</div>
+        </div>
+        <div class="stat-tile">
+          <div class="label">Result</div>
+          <div class="value" id="statResult">–</div>
+        </div>
+      </div>
+
+      <div class="chart-controls" id="chartControls" hidden>
+        <span class="legend-line"><span class="legend-swatch"></span> Trajectory value</span>
+        <button class="toggle-chip" id="logToggle" type="button" aria-pressed="false">Log scale</button>
+      </div>
+      <div class="chart-wrap" id="lineChartWrap" hidden>
+        <canvas id="lineChart"></canvas>
+        <div class="tooltip" id="lineTooltip" hidden></div>
+      </div>
+
+      <details class="sequence-list" id="sequenceDetails" hidden>
+        <summary>Show full sequence</summary>
+        <div class="sequence-values" id="sequenceValues"></div>
+      </details>
     </section>
 
     <footer class="footnote">
