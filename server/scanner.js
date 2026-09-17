@@ -1,146 +1,115 @@
 /**
- * Server-side range scanner: same memoization idea as the browser
- * Worker (js/worker.js), but sized for ranges up to ~1 billion.
+ * Orchestrates a range scan across N worker threads (server-worker.js),
+ * all sharing one SharedArrayBuffer-backed cache so every thread
+ * benefits from every other thread's cached values -- not just its
+ * own. Memory is the same as the single-threaded version (the cache
+ * is shared, not duplicated); wall-clock time scales down roughly
+ * with core count instead.
  *
- * Memory tradeoff vs. the browser version: steps are stored as
- * Uint16 (fine -- real Collatz step counts stay far under 65535 for
- * any range this will ever see) and peak as Float32 instead of
- * Float64, halving memory from 12 to 6 bytes/index. That trades
- * exact peak precision for headroom: verified against the exact
- * (Float64) version, step counts never differ and peak values are
- * off by at most ~6e-8 relative error -- irrelevant for a "highest
- * peak found" display, but worth knowing it's not bit-exact.
- *
- * The scan runs in chunks yielded via setImmediate rather than one
- * tight synchronous loop, so a long scan (a 1B run takes ~2 minutes)
- * doesn't block Node's event loop from flushing SSE progress writes
- * or noticing the client disconnected.
+ * Returns a `cancel()` function rather than polling an isAborted()
+ * flag, since cancellation here means actually terminating worker
+ * threads, not just breaking a loop.
  */
+const path = require("path");
+const { Worker } = require("worker_threads");
+const { mergeTop } = require("./algo");
 
-const CHUNK_SIZE = 2_000_000;
+function splitRange(start, end, numWorkers) {
+  const total = end - start + 1;
+  const base = Math.floor(total / numWorkers);
+  const ranges = [];
+  let cursor = start;
+  for (let i = 0; i < numWorkers; i++) {
+    const subStart = cursor;
+    const subEnd = i === numWorkers - 1 ? end : cursor + base - 1;
+    ranges.push([subStart, subEnd]);
+    cursor = subEnd + 1;
+  }
+  return ranges.filter(([s, e]) => e >= s);
+}
 
-function makeScanner(cacheCeiling, stepLimit) {
-  const stepsCache = new Uint16Array(cacheCeiling + 1); // 0 = uncomputed (n=1 special-cased, never stored)
-  const peakCache = new Float32Array(cacheCeiling + 1);
-  let rawBuf = new Float64Array(4096);
+function runScan(start, end, stepLimit, numWorkers, { onProgress, onDone }) {
+  const cacheCeiling = end;
+  const sharedStepsBuffer = new SharedArrayBuffer((cacheCeiling + 1) * 2); // Uint16
+  const sharedPeakBuffer = new SharedArrayBuffer((cacheCeiling + 1) * 4); // Float32
 
-  return function stepsFor(start) {
-    if (start === 1) return { steps: 0, peak: 1, converged: true };
+  const subRanges = splitRange(start, end, numWorkers);
+  const total = end - start + 1;
+  const startTime = Date.now();
 
-    let n = start;
-    let rawLen = 0;
-    while (true) {
-      if (n === 1) break;
-      if (n <= cacheCeiling && stepsCache[n] !== 0) break;
-      if (rawLen >= stepLimit) {
-        let peak = start;
-        for (let i = 0; i < rawLen; i++) if (rawBuf[i] > peak) peak = rawBuf[i];
-        return { steps: rawLen, peak, converged: false };
-      }
-      if (rawLen === rawBuf.length) {
-        const grown = new Float64Array(rawBuf.length * 2);
-        grown.set(rawBuf);
-        rawBuf = grown;
-      }
-      rawBuf[rawLen++] = n;
-      n = n % 2 === 0 ? n / 2 : 3 * n + 1;
+  const state = subRanges.map(([s, e]) => ({
+    processed: 0,
+    total: e - s + 1,
+    maxSteps: { n: s, steps: -1 },
+    maxPeak: { n: s, peak: -1 },
+    topSteps: [],
+    topPeak: [],
+    anomalyCount: 0,
+    anomalies: null, // filled in only once this worker's "done" message arrives
+    done: false,
+  }));
+
+  function combinedSnapshot() {
+    let processed = 0;
+    let maxSteps = { n: start, steps: -1 };
+    let maxPeak = { n: start, peak: -1 };
+    let topSteps = [];
+    let topPeak = [];
+    let anomalyCount = 0;
+    for (const w of state) {
+      processed += w.processed;
+      if (w.maxSteps.steps > maxSteps.steps) maxSteps = w.maxSteps;
+      if (w.maxPeak.peak > maxPeak.peak) maxPeak = w.maxPeak;
+      topSteps = mergeTop(topSteps, w.topSteps, "steps");
+      topPeak = mergeTop(topPeak, w.topPeak, "peak");
+      anomalyCount += w.anomalies ? w.anomalies.length : w.anomalyCount;
     }
+    return { processed, total, elapsed: Date.now() - startTime, maxSteps, maxPeak, topSteps, topPeak, anomalyCount };
+  }
 
-    let stepsAcc, peakAcc;
-    if (n === 1) {
-      stepsAcc = 0;
-      peakAcc = 1;
-    } else {
-      stepsAcc = stepsCache[n];
-      peakAcc = peakCache[n];
-    }
+  let settled = false;
+  const workers = [];
 
-    for (let i = rawLen - 1; i >= 0; i--) {
-      const v = rawBuf[i];
-      stepsAcc += 1;
-      if (v > peakAcc) peakAcc = v;
-      if (v <= cacheCeiling) {
-        stepsCache[v] = stepsAcc;
-        peakCache[v] = peakAcc;
+  function finish(extra) {
+    if (settled) return;
+    settled = true;
+    for (const w of workers) w.terminate();
+    onDone({ ...combinedSnapshot(), anomalies: state.flatMap((w) => w.anomalies || []), ...extra });
+  }
+
+  subRanges.forEach(([subStart, subEnd], i) => {
+    const worker = new Worker(path.join(__dirname, "scanner-worker.js"), {
+      workerData: { sharedStepsBuffer, sharedPeakBuffer, cacheCeiling, subStart, subEnd, stepLimit },
+    });
+    workers.push(worker);
+
+    worker.on("message", (msg) => {
+      if (settled) return;
+      const w = state[i];
+      w.processed = msg.processed;
+      w.maxSteps = msg.maxSteps;
+      w.maxPeak = msg.maxPeak;
+      w.topSteps = msg.topSteps;
+      w.topPeak = msg.topPeak;
+
+      if (msg.type === "done") {
+        w.anomalies = msg.anomalies;
+        w.done = true;
+        if (state.every((s) => s.done)) finish({});
+      } else {
+        w.anomalyCount = msg.anomalyCount;
+        onProgress(combinedSnapshot());
       }
-    }
-    return { steps: stepsAcc, peak: peakAcc, converged: true };
+    });
+
+    worker.on("error", (err) => {
+      finish({ error: err.message });
+    });
+  });
+
+  return function cancel() {
+    finish({ aborted: true });
   };
 }
 
-function insertTop(list, n, value, key) {
-  if (list.length === 10 && value <= list[9][key]) return;
-  const item = key === "steps" ? { n, steps: value } : { n, peak: value };
-  let idx = list.length;
-  while (idx > 0 && list[idx - 1][key] < value) idx--;
-  list.splice(idx, 0, item);
-  if (list.length > 10) list.pop();
-}
-
-/**
- * Runs a scan of [start, end], calling onProgress periodically and
- * onDone exactly once at the end (whether completed or aborted).
- * isAborted() is polled between chunks so a dropped client connection
- * stops the work instead of running to completion unattended.
- */
-function runScan(start, end, stepLimit, { onProgress, onDone, isAborted }) {
-  const stepsFor = makeScanner(end, stepLimit);
-  const total = end - start + 1;
-
-  let n = start;
-  let processed = 0;
-  let maxSteps = { n: start, steps: -1 };
-  let maxPeak = { n: start, peak: -1 };
-  const topSteps = [];
-  const topPeak = [];
-  const anomalies = [];
-  const startTime = Date.now();
-
-  function tick() {
-    if (isAborted()) {
-      onDone({ aborted: true, processed, total, elapsed: Date.now() - startTime });
-      return;
-    }
-
-    const chunkEnd = Math.min(end, n + CHUNK_SIZE - 1);
-    for (; n <= chunkEnd; n++) {
-      const r = stepsFor(n);
-      processed++;
-      if (!r.converged) anomalies.push({ n, steps: r.steps });
-      if (r.steps > maxSteps.steps) maxSteps = { n, steps: r.steps };
-      if (r.peak > maxPeak.peak) maxPeak = { n, peak: r.peak };
-      insertTop(topSteps, n, r.steps, "steps");
-      insertTop(topPeak, n, r.peak, "peak");
-    }
-
-    const elapsed = Date.now() - startTime;
-    if (n <= end) {
-      onProgress({
-        processed,
-        total,
-        elapsed,
-        maxSteps,
-        maxPeak,
-        topSteps: topSteps.slice(),
-        topPeak: topPeak.slice(),
-        anomalyCount: anomalies.length,
-      });
-      setImmediate(tick);
-    } else {
-      onDone({
-        processed,
-        total,
-        elapsed,
-        maxSteps,
-        maxPeak,
-        topSteps,
-        topPeak,
-        anomalies,
-      });
-    }
-  }
-
-  tick();
-}
-
-module.exports = { runScan, makeScanner };
+module.exports = { runScan, splitRange };

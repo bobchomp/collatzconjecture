@@ -2,12 +2,28 @@
 
 Handles range scans too large for a browser tab (anything above 100,000,000
 -- the site's frontend runs those in-browser on its own). Same memoized
-algorithm as the browser version, just with far more memory to work with,
-streamed back to the page over Server-Sent Events so the progress bar stays
-live.
+algorithm as the browser version, just with far more memory to work with
+and spread across every CPU core, streamed back to the page over
+Server-Sent Events so the progress bar stays live.
 
 Zero npm dependencies (Node built-ins only) -- the Docker image is just
-`node:20-slim` plus two small JS files.
+`node:20-slim` plus a handful of small JS files.
+
+## Multi-threaded scanning
+
+A scan is split evenly across `SCAN_THREADS` worker threads (default: all
+CPU cores the container can see), all reading and writing *one* shared
+cache -- so threads benefit from each other's work, not just their own,
+and memory isn't duplicated per thread. Verified byte-for-byte identical
+results at 1-4 threads against a plain single-threaded reference before
+shipping this. Benchmarked on a 4-core box: **~2.9x faster** at 4 threads
+than 1 (a 150,000,000 scan went from 24s to 9s end-to-end). More cores
+should scale further, though not perfectly linearly (shared-memory
+contention and per-scan coordination overhead both grow a little with
+thread count).
+
+Override with `SCAN_THREADS=N` in `.env` if you want to leave some cores
+free for other things on the same box.
 
 ## How big a range can I actually run?
 
@@ -15,12 +31,17 @@ Memory scales with the range's end value at ~6 bytes per number (a Uint16
 for step count, a Float32 for peak value -- verified against the exact
 Float64 version: step counts are always exact, peak values are off by at
 most ~6e-8 relative error, irrelevant for a "highest peak found" display).
+This is unaffected by thread count -- the cache is shared, not duplicated.
 
-| End value | Memory needed | Time (benchmarked) |
-|---|---|---|
-| 100,000,000 | ~0.6GB | seconds |
-| 500,000,000 | ~3GB | ~40s |
-| 1,000,000,000 | ~6GB | ~2-3 minutes |
+| End value | Memory needed | Time, 1 thread | Time, 4 threads |
+|---|---|---|---|
+| 100,000,000 | ~0.6GB | ~15s | ~5s |
+| 500,000,000 | ~3GB | ~75s | ~26s |
+| 1,000,000,000 | ~6GB | ~2.5 min | ~52s |
+
+(The 4-thread column is extrapolated from the measured 2.9x factor above
+100M/150M; times on your actual hardware will depend on core count and
+per-core speed.)
 
 Set `MAX_RANGE_END` to whatever your hardware can actually hold, and give
 the container at least 2GB of headroom above the number in that table (via

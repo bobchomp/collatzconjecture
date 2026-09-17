@@ -11,11 +11,13 @@
  */
 const http = require("http");
 const crypto = require("crypto");
+const os = require("os");
 const { runScan } = require("./scanner");
 
 const PORT = Number(process.env.PORT || 3939);
 const PASSWORD = process.env.SCAN_API_PASSWORD;
 const MAX_RANGE_END = Number(process.env.MAX_RANGE_END || 1_000_000_000);
+const SCAN_THREADS = Number(process.env.SCAN_THREADS || os.cpus().length);
 const ALLOWED_ORIGINS = (
   process.env.ALLOWED_ORIGINS || "https://collatz.rossmackenzie.co.uk,https://bobchomp.github.io"
 )
@@ -112,26 +114,25 @@ const server = http.createServer((req, res) => {
     Connection: "keep-alive",
   });
 
-  let aborted = false;
-  req.on("close", () => {
-    aborted = true;
-  });
-
   function send(event, data) {
     res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   }
 
-  runScan(start, end, stepLimit, {
+  const numWorkers = Math.max(1, Math.min(SCAN_THREADS, end - start + 1));
+  const cancel = runScan(start, end, stepLimit, numWorkers, {
     onProgress: (data) => send("progress", data),
     onDone: (data) => {
       jobRunning = false;
       send("done", data);
       res.end();
     },
-    isAborted: () => aborted,
   });
+
+  req.on("close", cancel);
 });
 
 server.listen(PORT, () => {
-  console.log(`Collatz scan server listening on :${PORT} (MAX_RANGE_END=${MAX_RANGE_END.toLocaleString()})`);
+  console.log(
+    `Collatz scan server listening on :${PORT} (MAX_RANGE_END=${MAX_RANGE_END.toLocaleString()}, SCAN_THREADS=${SCAN_THREADS})`
+  );
 });
