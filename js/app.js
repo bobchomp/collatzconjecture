@@ -344,33 +344,46 @@
     if (worker) worker.postMessage({ type: "stop" });
   });
 
-  // ---------- Fullscreen chart toggles ----------
+  // ---------- Chart "expand" popup ----------
+  // Reparents the actual chart-figure (canvas, tooltip, axis titles and
+  // all) into an in-page modal rather than using the browser's real
+  // Fullscreen API — no permission quirks, and it works on browsers
+  // (iOS Safari) that don't support fullscreening arbitrary elements.
+  const chartModal = document.getElementById("chartModal");
+  const chartModalSlot = document.getElementById("chartModalSlot");
+  const chartModalClose = document.getElementById("chartModalClose");
+  let modalHome = null;
+
+  function openChartModal(figure, chart, openerBtn) {
+    modalHome = { figure, parent: figure.parentNode, nextSibling: figure.nextSibling, chart, openerBtn };
+    chartModalSlot.appendChild(figure);
+    chartModal.hidden = false;
+    document.body.style.overflow = "hidden";
+    requestAnimationFrame(() => chart.render());
+    chartModalClose.focus();
+  }
+
+  function closeChartModal() {
+    if (!modalHome) return;
+    const { figure, parent, nextSibling, chart, openerBtn } = modalHome;
+    parent.insertBefore(figure, nextSibling);
+    chartModal.hidden = true;
+    document.body.style.overflow = "";
+    modalHome = null;
+    requestAnimationFrame(() => chart.render());
+    openerBtn.focus();
+  }
+
+  chartModalClose.addEventListener("click", closeChartModal);
+  chartModal.querySelector(".chart-modal-backdrop").addEventListener("click", closeChartModal);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !chartModal.hidden) closeChartModal();
+  });
+
   function wireFullscreenButton(btnId, chart) {
     const btn = document.getElementById(btnId);
     const figure = btn.closest(".chart-figure");
-    const canFullscreen = figure.requestFullscreen || figure.webkitRequestFullscreen;
-    if (!canFullscreen) {
-      btn.hidden = true;
-      return;
-    }
-    const isActive = () => document.fullscreenElement === figure || document.webkitFullscreenElement === figure;
-    btn.addEventListener("click", () => {
-      const result = isActive()
-        ? (document.exitFullscreen || document.webkitExitFullscreen).call(document)
-        : (figure.requestFullscreen ? figure.requestFullscreen() : figure.webkitRequestFullscreen());
-      if (result && typeof result.catch === "function") {
-        result.catch(() => {
-          /* some browsers refuse fullscreen outside a direct user gesture; fail quietly */
-        });
-      }
-    });
-    const onChange = () => {
-      btn.textContent = isActive() ? "⤡" : "⤢";
-      btn.setAttribute("aria-label", isActive() ? "Exit fullscreen" : "View chart fullscreen");
-      requestAnimationFrame(() => chart.render());
-    };
-    document.addEventListener("fullscreenchange", onChange);
-    document.addEventListener("webkitfullscreenchange", onChange);
+    btn.addEventListener("click", () => openChartModal(figure, chart, btn));
   }
 
   wireFullscreenButton("lineFullscreenBtn", lineChart);

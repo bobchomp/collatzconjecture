@@ -328,33 +328,89 @@ input[type="number"]:focus {
   color: var(--text-primary);
 }
 
-.chart-figure:fullscreen,
-.chart-figure:-webkit-full-screen {
-  width: 100vw;
-  height: 100vh;
-  padding: 32px;
+.chart-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-modal[hidden] {
+  display: none;
+}
+
+.chart-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(11, 11, 11, 0.6);
+}
+
+.chart-modal-panel {
+  position: relative;
+  width: min(1100px, 94vw);
+  height: min(720px, 88vh);
   background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 28px 24px 20px;
   display: flex;
   flex-direction: column;
+}
+
+.chart-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.chart-modal-close:hover {
+  color: var(--text-primary);
+  border-color: var(--axis);
+}
+
+.chart-modal-slot {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+
+.chart-modal-slot .chart-figure {
+  flex: 1 1 auto;
+  min-height: 0;
   margin: 0;
 }
 
-.chart-figure:fullscreen .chart-body,
-.chart-figure:-webkit-full-screen .chart-body {
+.chart-modal-slot .chart-body {
   flex: 1 1 auto;
   min-height: 0;
 }
 
-.chart-figure:fullscreen .chart-wrap,
-.chart-figure:-webkit-full-screen .chart-wrap {
+.chart-modal-slot .chart-wrap {
   height: 100%;
 }
 
-.chart-figure:fullscreen .axis-title-y,
-.chart-figure:fullscreen .axis-title-x,
-.chart-figure:-webkit-full-screen .axis-title-y,
-.chart-figure:-webkit-full-screen .axis-title-x {
-  font-size: 0.9rem;
+.chart-modal-slot .axis-title-y,
+.chart-modal-slot .axis-title-x {
+  font-size: 0.85rem;
+}
+
+.chart-modal-slot .fullscreen-btn {
+  display: none;
 }
 
 .tooltip {
