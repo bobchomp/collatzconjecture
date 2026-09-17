@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Collatz Conjecture Explorer</title>
+<meta name="description" content="Trace Collatz trajectories and exhaustively verify ranges of integers, looking for the counterexample that has never been found." />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <div class="brand">
+        <h1>Collatz Conjecture Explorer</h1>
+        <p class="tagline">Trace individual trajectories and exhaustively verify ranges of integers — the same kind of empirical search researchers run, just in your browser tab.</p>
+      </div>
+      <button id="themeToggle" class="theme-toggle" type="button">Theme: System</button>
+    </header>
+
+    <section class="card intro">
+      <h2>What this actually does</h2>
+      <p>
+        The Collatz conjecture claims that repeatedly applying one rule to any positive integer
+        always eventually reaches 1. It is unproven — nobody has found a counterexample, and
+        nobody has proven one can't exist. This app doesn't solve it (nobody can, yet). It does
+        what every computer-assisted attempt on it has done: run the rule and watch what happens.
+      </p>
+      <div class="formula">
+        <code>n is even → n / 2</code>
+        <code>n is odd → 3n + 1</code>
+        <code>repeat until n = 1</code>
+      </div>
+    </section>
+
+    <section class="card" id="explorerCard">
+      <h2>Explore a number</h2>
+      <p class="section-desc">Enter any positive integer (as large as you like) and watch its trajectory, a.k.a. "hailstone sequence."</p>
+
+      <div class="row" style="align-items:flex-end">
+        <div style="flex:1; min-width:220px">
+          <label class="field-label" for="numberInput">Starting number</label>
+          <input id="numberInput" type="text" inputmode="numeric" value="27" autocomplete="off" />
+        </div>
+        <button id="exploreBtn" class="btn" type="button">Trace it</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn-preset" data-preset="27" type="button">27</button>
+        <button class="btn-preset" data-preset="97" type="button">97</button>
+        <button class="btn-preset" data-preset="6171" type="button">6,171</button>
+        <button class="btn-preset" data-preset="837799" type="button">837,799</button>
+        <button class="btn-preset" data-preset="random" type="button">Random</button>
+      </div>
+      <p class="error-text" id="explorerError"></p>
+
+      <div class="stat-row" id="explorerStats" hidden>
+        <div class="stat-tile">
+          <div class="label">Steps to reach 1</div>
+          <div class="value" id="statSteps">–</div>
+        </div>
+        <div class="stat-tile">
+          <div class="label">Peak value</div>
+          <div class="value small" id="statPeak">–</div>
+        </div>
+        <div class="stat-tile">
+          <div class="label">Peak / start ratio</div>
+          <div class="value" id="statRatio">–</div>
+        </div>
+        <div class="stat-tile">
+          <div class="label">Result</div>
+          <div class="value" id="statResult">–</div>
+        </div>
+      </div>
+
+      <div class="chart-controls" id="chartControls" hidden>
+        <span class="legend-line"><span class="legend-swatch"></span> Trajectory value</span>
+        <button class="toggle-chip" id="logToggle" type="button" aria-pressed="false">Log scale</button>
+      </div>
+      <div class="chart-wrap" id="lineChartWrap" hidden>
+        <canvas id="lineChart"></canvas>
+        <div class="tooltip" id="lineTooltip" hidden></div>
+      </div>
+
+      <details class="sequence-list" id="sequenceDetails" hidden>
+        <summary>Show full sequence</summary>
+        <div class="sequence-values" id="sequenceValues"></div>
+      </details>
+    </section>
+
+    <section class="card" id="scannerCard">
+      <h2>Verify a range</h2>
+      <p class="section-desc">
+        Scan every integer in a range and confirm each one reaches 1, tracking the longest
+        trajectories and highest peaks found. Runs in a background thread so the page stays responsive.
+      </p>
+
+      <div class="row" style="align-items:flex-end">
+        <div style="min-width:140px">
+          <label class="field-label" for="rangeStart">Start</label>
+          <input id="rangeStart" type="number" min="1" value="1" />
+        </div>
+        <div style="min-width:140px">
+          <label class="field-label" for="rangeEnd">End</label>
+          <input id="rangeEnd" type="number" min="1" value="200000" />
+        </div>
+        <div style="min-width:140px">
+          <label class="field-label" for="stepLimit">Step cap per number</label>
+          <input id="stepLimit" type="number" min="100" value="100000" />
+        </div>
+        <button id="scanBtn" class="btn" type="button">Start scan</button>
+        <button id="stopBtn" class="btn btn-ghost" type="button" hidden>Stop</button>
+      </div>
+      <p class="error-text" id="scanError"></p>
+
+      <div class="progress-track" id="progressTrack" hidden>
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-meta" id="progressMeta" hidden>
+        <span id="progressCount">0 / 0</span>
+        <span id="progressElapsed">0.0s</span>
+      </div>
+
+      <div id="scanBanner"></div>
+
+      <div class="stat-row" id="scanStats" hidden>
+        <div class="stat-tile">
+          <div class="label">Numbers verified</div>
+          <div class="value" id="scanCount">0</div>
+        </div>
+        <div class="stat-tile">
+          <div class="label">Longest trajectory</div>
+          <div class="value small" id="scanMaxSteps">–</div>
+        </div>
+        <div class="stat-tile">
+          <div class="label">Highest peak</div>
+          <div class="value small" id="scanMaxPeak">–</div>
+        </div>
+        <div class="stat-tile">
+          <div class="label">Elapsed</div>
+          <div class="value" id="scanElapsed">–</div>
+        </div>
+      </div>
+
+      <div class="chart-controls" id="scatterControls" hidden>
+        <span class="legend-line"><span class="legend-swatch"></span> <span id="scatterLegendLabel">Steps per starting number</span></span>
+        <button class="toggle-chip" id="scatterModeSteps" type="button" aria-pressed="true">Steps</button>
+        <button class="toggle-chip" id="scatterModePeak" type="button" aria-pressed="false">Peak value</button>
+      </div>
+      <div class="chart-wrap" id="scatterChartWrap" hidden>
+        <canvas id="scatterChart"></canvas>
+        <div class="tooltip" id="scatterTooltip" hidden></div>
+      </div>
+
+      <div class="tabs" id="recordTabs" hidden>
+        <button class="tab-btn" data-tab="steps" aria-selected="true" type="button">Longest trajectories</button>
+        <button class="tab-btn" data-tab="peak" aria-selected="false" type="button">Highest peaks</button>
+      </div>
+      <table class="records" id="recordsTableSteps" hidden>
+        <thead><tr><th>Starting number</th><th>Steps</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <table class="records" id="recordsTablePeak" hidden>
+        <thead><tr><th>Starting number</th><th>Peak value</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <footer class="footnote">
+      <p>
+        The conjecture has been verified far beyond what a browser can check in real time —
+        published computational work has confirmed it for every starting value up to roughly
+        2<sup>68</sup>. Nothing here changes that frontier; it's a hands-on way to see the same
+        method at a scale you can watch happen.
+      </p>
+    </footer>
+  </div>
+
+  <script src="js/collatz.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
