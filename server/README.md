@@ -9,6 +9,10 @@ Server-Sent Events so the progress bar stays live.
 Zero npm dependencies (Node built-ins only) -- the Docker image is just
 `node:20-slim` plus a handful of small JS files.
 
+**Two ways to run this**: on your own hardware (this file, below), or for
+free on Google Cloud Run with no home network exposure at all --
+see `DEPLOY_CLOUDRUN.md`. Same container either way, no code differences.
+
 ## Multi-threaded scanning
 
 A scan is split evenly across `SCAN_THREADS` worker threads (default: all

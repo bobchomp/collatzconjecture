@@ -1,0 +1,129 @@
+# Deploying the scan server to Google Cloud Run (free)
+
+An alternative to running `server/` on your own hardware: Google Cloud Run
+runs the exact same container, gives you a working `https://` URL
+automatically (no Cloudflare Tunnel, no home network exposure), and scales
+to zero when idle -- nothing running, nothing costs anything. Usage stays
+within Cloud Run's permanent free monthly quota (360,000 GiB-seconds +
+180,000 vCPU-seconds) for anything short of very heavy daily use.
+
+No code changes needed -- `server/index.js` already reads `PORT` from the
+environment and binds to all interfaces, which is exactly what Cloud Run
+requires.
+
+## 1. One-time Google Cloud setup
+
+1. Create a project (or use an existing one) at
+   [console.cloud.google.com](https://console.cloud.google.com/) and note
+   its **project ID**.
+2. Enable billing on it. You won't be charged unless you exceed the free
+   quota -- Cloud Run requires a billing account attached regardless.
+3. Install the [gcloud CLI](https://cloud.google.com/sdk/docs/install), then:
+   ```sh
+   gcloud auth login
+   gcloud config set project YOUR_PROJECT_ID
+   gcloud services enable run.googleapis.com cloudbuild.googleapis.com
+   ```
+
+## 2. Deploy
+
+From the repo root:
+
+```sh
+gcloud run deploy collatz-scan-server \
+  --source ./server \
+  --region us-central1 \
+  --memory 16Gi \
+  --cpu 4 \
+  --timeout 3600 \
+  --concurrency 1 \
+  --max-instances 1 \
+  --allow-unauthenticated \
+  --set-env-vars SCAN_API_PASSWORD="$(openssl rand -base64 24)",MAX_RANGE_END=2000000000,ALLOWED_ORIGINS="https://collatz.rossmackenzie.co.uk,https://bobchomp.github.io"
+```
+
+This builds the container from `server/Dockerfile` via Cloud Build and
+deploys it. Takes a couple of minutes the first time.
+
+**Why these flags:**
+- `--memory 16Gi --cpu 4` — a documented, always-available Cloud Run tier.
+  At ~6 bytes/number, 16GB comfortably covers ranges past 2 billion (see
+  `MAX_RANGE_END` below) with headroom for Node's own overhead. 4 CPUs
+  matches what's already been benchmarked for this server (this exact
+  4-core setup measured ~2.9x faster than single-threaded).
+- `--timeout 3600` — the maximum Cloud Run allows (60 minutes), so even a
+  very large scan's SSE stream never gets cut off mid-way.
+- `--concurrency 1 --max-instances 1` — **important for correctness, not
+  just cost**: without this, Cloud Run could spin up a second container
+  instance for a second concurrent request, and each instance has its own
+  in-memory "one scan at a time" lock -- so two scans could run
+  simultaneously on two instances, defeating the point. Capping both at 1
+  makes the lock genuinely global.
+- `--allow-unauthenticated` — required so the page's anonymous visitors can
+  reach it at all. Your app-level password (`SCAN_API_PASSWORD`) is the
+  actual gate, same trust model as the homelab + Cloudflare Tunnel setup.
+- The `openssl rand -base64 24` inline generates a fresh random password on
+  deploy -- copy it from the command's own output/history, or set your own
+  fixed value instead if you'd rather choose it yourself.
+
+Swap `MAX_RANGE_END` and `--memory`/`--cpu` together if you want a
+different ceiling -- see the memory table in `server/README.md` (same
+~6 bytes/number math applies here).
+
+**Note**: 4 CPU / 16GiB is a long-standing valid Cloud Run combination, but
+I can't verify it against a live GCP account from here, and Google does
+occasionally revise the allowed CPU/memory pairings. If `gcloud run deploy`
+rejects the combination, it'll say so explicitly and point you at
+[the current limits](https://cloud.google.com/run/docs/configuring/services/memory-limits) --
+just adjust `--memory`/`--cpu` to a currently-valid pair and update
+`MAX_RANGE_END` to match using the same ~6 bytes/number math.
+
+## 3. Get your password back if you forget it
+
+```sh
+gcloud run services describe collatz-scan-server --region us-central1 \
+  --format="value(spec.template.spec.containers[0].env)"
+```
+
+(Or use Secret Manager instead of a plain env var if you'd rather it not
+show up there at all -- `gcloud secrets create`, then
+`--set-secrets SCAN_API_PASSWORD=collatz-password:latest` in place of the
+`--set-env-vars` entry for it.)
+
+## 4. Verify
+
+```sh
+curl https://collatz-scan-server-XXXXXXXXXX.us-central1.run.app/health
+```
+(Cloud Run prints the exact URL after `gcloud run deploy` finishes.)
+Expect: `{"ok":true,"jobRunning":false,"maxRangeEnd":2000000000}`
+
+## 5. Point the site at it
+
+Same as the homelab setup: open **Verify a range → Server settings** on
+the live site, enter the `.run.app` URL and the password, click
+**Save & test**.
+
+## 6. Updating
+
+```sh
+gcloud run deploy collatz-scan-server --source ./server --region us-central1
+```
+(Omit the env var flags on redeploy -- Cloud Run keeps the existing ones
+unless you explicitly change them.)
+
+## Optional: a custom domain instead of `*.run.app`
+
+```sh
+gcloud run domain-mappings create --service collatz-scan-server \
+  --domain collatz-api.yourdomain.com --region us-central1
+```
+Cloud Run gives you DNS records to add at your registrar; it provisions
+the TLS certificate itself once they're in place.
+
+## Keeping an eye on free-tier usage
+
+**Cloud Console → Billing → Reports**, filtered to Cloud Run, shows usage
+against the free quota. For occasional personal use this is very unlikely
+to ever approach the limit -- a single 1-billion-number scan at this
+configuration uses roughly 1/150th of the monthly free memory quota.

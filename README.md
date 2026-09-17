@@ -31,8 +31,9 @@ python3 -m http.server 8080
   thread, with a live progress bar, a scatter chart of steps/peak per
   starting number, and tables of the top 10 longest trajectories and
   highest peaks found. Ranges up to 100,000,000 run entirely in-browser;
-  above that, an optional self-hosted server (see `server/README.md`) takes
-  over, up to whatever range it's configured to allow.
+  above that, an optional server takes over, up to whatever range it's
+  configured to allow -- self-hosted (`server/README.md`) or free on
+  Google Cloud Run (`server/DEPLOY_CLOUDRUN.md`).
 
 ## Files
 

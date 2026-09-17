@@ -2,7 +2,7 @@ FROM node:20-slim
 
 WORKDIR /app
 COPY package.json ./
-COPY index.js scanner.js ./
+COPY index.js scanner.js scanner-worker.js algo.js ./
 
 # No npm install needed -- zero runtime dependencies (Node built-ins only).
 
