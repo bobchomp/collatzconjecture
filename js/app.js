@@ -164,6 +164,7 @@
   const LOCAL_MAX_RANGE_END = 100000000;
   const scatterChart = Charts.ScatterChart(document.getElementById("scatterChart"), document.getElementById("scatterTooltip"));
   let scatterMode = "steps";
+  let scatterRevealFraction = 0;
   let lastTopSteps = [];
   let lastTopPeak = [];
   let scanPointsSteps = [];
@@ -304,10 +305,27 @@
 
   function updateScatter() {
     const points = scatterMode === "steps" ? scanPointsSteps : scanPointsPeak;
+    const visibleCount = points.length === 0 ? 0 : Math.max(1, Math.ceil(points.length * scatterRevealFraction));
     document.getElementById("scatterLegendLabel").textContent =
       scatterMode === "steps" ? "Steps per starting number" : "Peak value per starting number";
     scatterYAxisTitle.textContent = scatterMode === "steps" ? "Steps" : "Peak value";
-    scatterChart.setData(points, scatterMode === "steps" ? "steps" : "peak");
+    scatterChart.setData(points.slice(0, visibleCount), scatterMode === "steps" ? "steps" : "peak");
+  }
+
+  /** Sampled independently of scan progress -- cheap enough (bounded to
+   *  ~60,000 calls regardless of range size) to compute upfront, then
+   *  revealed left-to-right in step with the real scan's progress. */
+  function computeScatterSamples(start, end) {
+    const strideBudget = 60000;
+    const stride = Math.max(1, Math.floor((end - start + 1) / strideBudget));
+    const steps = [];
+    const peak = [];
+    for (let n = start; n <= end; n += stride) {
+      const r = Collatz.collatzStatsFast(n, 1000000);
+      steps.push({ x: n, y: r.steps });
+      peak.push({ x: n, y: r.peak });
+    }
+    return { steps, peak };
   }
 
   document.getElementById("scatterModeSteps").addEventListener("click", () => {
@@ -369,15 +387,18 @@
       return;
     }
 
-    scanPointsSteps = [];
-    scanPointsPeak = [];
+    const samples = computeScatterSamples(start, end);
+    scanPointsSteps = samples.steps;
+    scanPointsPeak = samples.peak;
+    scatterRevealFraction = 0;
     lastTopSteps = [];
     lastTopPeak = [];
     scanStats.hidden = false;
     progressTrack.hidden = false;
     progressMeta.hidden = false;
-    scatterControls.hidden = true;
-    scatterChartFigure.hidden = true;
+    scatterControls.hidden = false;
+    scatterChartFigure.hidden = false;
+    updateScatter();
     recordTabs.hidden = true;
     tableSteps.hidden = true;
     tablePeak.hidden = true;
@@ -483,25 +504,18 @@
 
       lastTopSteps = msg.topSteps || lastTopSteps;
       lastTopPeak = msg.topPeak || lastTopPeak;
+
+      // Reveal the (already-computed) scatter samples left-to-right in
+      // step with real progress, rather than only showing the chart
+      // once the whole scan is done.
+      scatterRevealFraction = msg.processed / msg.total;
+      updateScatter();
     }
 
     if (msg.type === "done") {
       setScanningUI(false);
       progressFill.style.width = "100%";
-
-      // Downsample scatter points if the range is huge, to keep rendering snappy.
-      const total = msg.total;
-      const strideBudget = 60000;
-      const stride = Math.max(1, Math.floor(total / strideBudget));
-      scanPointsSteps = [];
-      scanPointsPeak = [];
-      for (let n = start; n <= end; n += stride) {
-        const r = Collatz.collatzStatsFast(n, 1000000);
-        scanPointsSteps.push({ x: n, y: r.steps });
-        scanPointsPeak.push({ x: n, y: r.peak });
-      }
-      scatterControls.hidden = false;
-      scatterChartFigure.hidden = false;
+      scatterRevealFraction = 1;
       updateScatter();
 
       recordTabs.hidden = false;
