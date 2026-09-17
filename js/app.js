@@ -41,7 +41,8 @@
   const explorerError = document.getElementById("explorerError");
   const explorerStats = document.getElementById("explorerStats");
   const chartControls = document.getElementById("chartControls");
-  const lineChartWrap = document.getElementById("lineChartWrap");
+  const lineChartFigure = document.getElementById("lineChartFigure");
+  const lineYAxisTitle = document.getElementById("lineYAxisTitle");
   const sequenceDetails = document.getElementById("sequenceDetails");
   const sequenceValues = document.getElementById("sequenceValues");
   const logToggle = document.getElementById("logToggle");
@@ -54,6 +55,7 @@
   logToggle.addEventListener("click", () => {
     logScaleOn = !logScaleOn;
     logToggle.setAttribute("aria-pressed", String(logScaleOn));
+    lineYAxisTitle.textContent = logScaleOn ? "Sequence value (log scale)" : "Sequence value";
     lineChart.setLogScale(logScaleOn);
   });
 
@@ -73,7 +75,7 @@
       explorerError.textContent = "Enter a positive whole number (digits only).";
       explorerStats.hidden = true;
       chartControls.hidden = true;
-      lineChartWrap.hidden = true;
+      lineChartFigure.hidden = true;
       sequenceDetails.hidden = true;
       return;
     }
@@ -95,7 +97,7 @@
     }
 
     chartControls.hidden = false;
-    lineChartWrap.hidden = false;
+    lineChartFigure.hidden = false;
     const points = sequence.map((v, i) => ({ x: i, y: Number(v) }));
     lineChart.setData(points);
 
@@ -153,7 +155,8 @@
   const scanBanner = document.getElementById("scanBanner");
   const scanStats = document.getElementById("scanStats");
   const scatterControls = document.getElementById("scatterControls");
-  const scatterChartWrap = document.getElementById("scatterChartWrap");
+  const scatterChartFigure = document.getElementById("scatterChartFigure");
+  const scatterYAxisTitle = document.getElementById("scatterYAxisTitle");
   const recordTabs = document.getElementById("recordTabs");
   const tableSteps = document.getElementById("recordsTableSteps");
   const tablePeak = document.getElementById("recordsTablePeak");
@@ -193,6 +196,7 @@
     const points = scatterMode === "steps" ? scanPointsSteps : scanPointsPeak;
     document.getElementById("scatterLegendLabel").textContent =
       scatterMode === "steps" ? "Steps per starting number" : "Peak value per starting number";
+    scatterYAxisTitle.textContent = scatterMode === "steps" ? "Steps" : "Peak value";
     scatterChart.setData(points, scatterMode === "steps" ? "steps" : "peak");
   }
 
@@ -255,7 +259,7 @@
     progressTrack.hidden = false;
     progressMeta.hidden = false;
     scatterControls.hidden = true;
-    scatterChartWrap.hidden = true;
+    scatterChartFigure.hidden = true;
     recordTabs.hidden = true;
     tableSteps.hidden = true;
     tablePeak.hidden = true;
@@ -307,7 +311,7 @@
         scanPointsPeak.push({ x: n, y: r.peak });
       }
       scatterControls.hidden = false;
-      scatterChartWrap.hidden = false;
+      scatterChartFigure.hidden = false;
       updateScatter();
 
       recordTabs.hidden = false;
@@ -339,4 +343,36 @@
   stopBtn.addEventListener("click", () => {
     if (worker) worker.postMessage({ type: "stop" });
   });
+
+  // ---------- Fullscreen chart toggles ----------
+  function wireFullscreenButton(btnId, chart) {
+    const btn = document.getElementById(btnId);
+    const figure = btn.closest(".chart-figure");
+    const canFullscreen = figure.requestFullscreen || figure.webkitRequestFullscreen;
+    if (!canFullscreen) {
+      btn.hidden = true;
+      return;
+    }
+    const isActive = () => document.fullscreenElement === figure || document.webkitFullscreenElement === figure;
+    btn.addEventListener("click", () => {
+      const result = isActive()
+        ? (document.exitFullscreen || document.webkitExitFullscreen).call(document)
+        : (figure.requestFullscreen ? figure.requestFullscreen() : figure.webkitRequestFullscreen());
+      if (result && typeof result.catch === "function") {
+        result.catch(() => {
+          /* some browsers refuse fullscreen outside a direct user gesture; fail quietly */
+        });
+      }
+    });
+    const onChange = () => {
+      btn.textContent = isActive() ? "⤡" : "⤢";
+      btn.setAttribute("aria-label", isActive() ? "Exit fullscreen" : "View chart fullscreen");
+      requestAnimationFrame(() => chart.render());
+    };
+    document.addEventListener("fullscreenchange", onChange);
+    document.addEventListener("webkitfullscreenchange", onChange);
+  }
+
+  wireFullscreenButton("lineFullscreenBtn", lineChart);
+  wireFullscreenButton("scatterFullscreenBtn", scatterChart);
 })();

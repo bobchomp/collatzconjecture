@@ -91,9 +91,16 @@
         <button class="toggle-chip" id="scatterModeSteps" type="button" aria-pressed="true">Steps</button>
         <button class="toggle-chip" id="scatterModePeak" type="button" aria-pressed="false">Peak value</button>
       </div>
-      <div class="chart-wrap" id="scatterChartWrap" hidden>
-        <canvas id="scatterChart"></canvas>
-        <div class="tooltip" id="scatterTooltip" hidden></div>
+      <div class="chart-figure" id="scatterChartFigure" hidden>
+        <div class="chart-body">
+          <div class="axis-title-y" id="scatterYAxisTitle">Steps</div>
+          <div class="chart-wrap" id="scatterChartWrap">
+            <button class="fullscreen-btn" id="scatterFullscreenBtn" type="button" aria-label="View chart fullscreen" title="Fullscreen">⤢</button>
+            <canvas id="scatterChart"></canvas>
+            <div class="tooltip" id="scatterTooltip" hidden></div>
+          </div>
+        </div>
+        <div class="axis-title-x">Starting number</div>
       </div>
 
       <div class="tabs" id="recordTabs" hidden>
@@ -153,9 +160,16 @@
         <span class="legend-line"><span class="legend-swatch"></span> Trajectory value</span>
         <button class="toggle-chip" id="logToggle" type="button" aria-pressed="false">Log scale</button>
       </div>
-      <div class="chart-wrap" id="lineChartWrap" hidden>
-        <canvas id="lineChart"></canvas>
-        <div class="tooltip" id="lineTooltip" hidden></div>
+      <div class="chart-figure" id="lineChartFigure" hidden>
+        <div class="chart-body">
+          <div class="axis-title-y" id="lineYAxisTitle">Sequence value</div>
+          <div class="chart-wrap" id="lineChartWrap">
+            <button class="fullscreen-btn" id="lineFullscreenBtn" type="button" aria-label="View chart fullscreen" title="Fullscreen">⤢</button>
+            <canvas id="lineChart"></canvas>
+            <div class="tooltip" id="lineTooltip" hidden></div>
+          </div>
+        </div>
+        <div class="axis-title-x">Step number</div>
       </div>
 
       <details class="sequence-list" id="sequenceDetails" hidden>
