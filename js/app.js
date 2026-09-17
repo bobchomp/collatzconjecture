@@ -375,4 +375,13 @@
 
   wireFullscreenButton("lineFullscreenBtn", lineChart);
   wireFullscreenButton("scatterFullscreenBtn", scatterChart);
+
+  // Canvas text doesn't repaint on its own once a web font finishes
+  // loading, so re-render once Poppins is actually available.
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => {
+      lineChart.render();
+      scatterChart.render();
+    });
+  }
 })();

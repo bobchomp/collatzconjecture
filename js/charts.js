@@ -88,7 +88,7 @@
       ctx.strokeStyle = gridColor;
       ctx.lineWidth = 1;
       ctx.fillStyle = textColor;
-      ctx.font = "11px system-ui, -apple-system, sans-serif";
+      ctx.font = "11px 'Poppins', system-ui, -apple-system, sans-serif";
       ctx.textAlign = "right";
       ctx.textBaseline = "middle";
       rawTicks.forEach((t) => {
@@ -232,7 +232,7 @@
       ctx.strokeStyle = gridColor;
       ctx.lineWidth = 1;
       ctx.fillStyle = textColor;
-      ctx.font = "11px system-ui, -apple-system, sans-serif";
+      ctx.font = "11px 'Poppins', system-ui, -apple-system, sans-serif";
       ctx.textAlign = "right";
       ctx.textBaseline = "middle";
       niceTicks(yMin, yMax, 5).forEach((t) => {
