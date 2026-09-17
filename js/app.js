@@ -165,6 +165,8 @@
   const scatterChart = Charts.ScatterChart(document.getElementById("scatterChart"), document.getElementById("scatterTooltip"));
   let scatterMode = "steps";
   let scatterRevealFraction = 0;
+  let lastScatterRedrawTime = 0;
+  const SCATTER_REDRAW_INTERVAL_MS = 150;
   let lastTopSteps = [];
   let lastTopPeak = [];
   let scanPointsSteps = [];
@@ -542,9 +544,17 @@
 
       // Reveal the (already-computed) scatter samples left-to-right in
       // step with real progress, rather than only showing the chart
-      // once the whole scan is done.
+      // once the whole scan is done. Throttled by time (not tied 1:1 to
+      // progress-message frequency) since redrawing tens of thousands
+      // of canvas points on every message -- possible on a fast
+      // multi-threaded server sending many messages per second -- is
+      // what caused visible lag on very large scans.
       scatterRevealFraction = msg.processed / msg.total;
-      updateScatter();
+      const now = Date.now();
+      if (now - lastScatterRedrawTime >= SCATTER_REDRAW_INTERVAL_MS) {
+        updateScatter();
+        lastScatterRedrawTime = now;
+      }
     }
 
     if (msg.type === "done") {
@@ -552,6 +562,7 @@
       progressFill.style.width = "100%";
       scatterRevealFraction = 1;
       updateScatter();
+      lastScatterRedrawTime = Date.now();
 
       recordTabs.hidden = false;
       renderRecordsTable(tableSteps, msg.topSteps, "steps");
