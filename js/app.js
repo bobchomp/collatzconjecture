@@ -174,7 +174,6 @@
   let stopCurrentScan = null; // set to whichever stop mechanism the active scan uses
 
   // ---------- Optional remote server (for ranges above LOCAL_MAX_RANGE_END) ----------
-  const serverSettings = document.getElementById("serverSettings");
   const serverSettingsSummary = document.getElementById("serverSettingsSummary");
   const serverUrlInput = document.getElementById("serverUrlInput");
   const serverPasswordInput = document.getElementById("serverPasswordInput");
@@ -579,6 +578,35 @@
 
   wireFullscreenButton("lineFullscreenBtn", lineChart);
   wireFullscreenButton("scatterFullscreenBtn", scatterChart);
+
+  // ---------- Settings popup ----------
+  const settingsBtn = document.getElementById("settingsBtn");
+  const settingsModal = document.getElementById("settingsModal");
+  const settingsModalClose = document.getElementById("settingsModalClose");
+  let settingsOpenerBtn = null;
+
+  function openSettingsModal(openerBtn) {
+    settingsOpenerBtn = openerBtn;
+    settingsModal.hidden = false;
+    document.body.style.overflow = "hidden";
+    settingsModalClose.focus();
+  }
+
+  function closeSettingsModal() {
+    if (settingsModal.hidden) return;
+    settingsModal.hidden = true;
+    document.body.style.overflow = "";
+    if (settingsOpenerBtn) settingsOpenerBtn.focus();
+    settingsOpenerBtn = null;
+  }
+
+  settingsBtn.addEventListener("click", () => openSettingsModal(settingsBtn));
+  serverSettingsSummary.addEventListener("click", () => openSettingsModal(serverSettingsSummary));
+  settingsModalClose.addEventListener("click", closeSettingsModal);
+  settingsModal.querySelector(".chart-modal-backdrop").addEventListener("click", closeSettingsModal);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !settingsModal.hidden) closeSettingsModal();
+  });
 
   // Canvas text doesn't repaint on its own once a web font finishes
   // loading, so re-render once Poppins is actually available.

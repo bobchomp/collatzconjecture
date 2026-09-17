@@ -489,18 +489,22 @@ details.sequence-list summary {
   min-height: 1.2em;
 }
 
-.server-settings {
+.server-status-line {
+  display: block;
   margin: 6px 0 10px;
-}
-
-.server-settings summary {
+  padding: 0;
+  border: none;
+  background: none;
   cursor: pointer;
   color: var(--text-secondary);
   font-size: 0.82rem;
+  font-family: inherit;
+  text-align: left;
 }
 
-.server-settings summary:hover {
+.server-status-line:hover {
   color: var(--text-primary);
+  text-decoration: underline;
 }
 
 .server-settings-form {
@@ -511,11 +515,27 @@ details.sequence-list summary {
   margin-top: 10px;
 }
 
-.server-settings-hint {
-  color: var(--text-muted);
-  font-size: 0.78rem;
-  margin: 8px 0 0;
-  max-width: 60ch;
+.topbar-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.settings-modal-panel {
+  width: min(480px, 92vw);
+  height: auto;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.settings-modal-title {
+  font-size: 1.15rem;
+  margin: 0 0 16px;
+}
+
+.settings-section-title {
+  font-size: 0.95rem;
+  margin: 0 0 4px;
 }
 
 .progress-track {

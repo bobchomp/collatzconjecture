@@ -17,7 +17,10 @@
         <h1>Collatz Conjecture Explorer</h1>
         <p class="tagline">Trace individual trajectories and exhaustively verify ranges of integers — the same kind of empirical search researchers run, just in your browser tab.</p>
       </div>
-      <button id="themeToggle" class="theme-toggle" type="button">Theme: System</button>
+      <div class="topbar-actions">
+        <button id="settingsBtn" class="theme-toggle" type="button" aria-haspopup="dialog">⚙ Settings</button>
+        <button id="themeToggle" class="theme-toggle" type="button">Theme: System</button>
+      </div>
     </header>
 
     <section class="card intro">
@@ -60,26 +63,7 @@
       </div>
       <p class="error-text" id="scanError"></p>
 
-      <details class="server-settings" id="serverSettings">
-        <summary id="serverSettingsSummary">Server: not configured (ranges capped at 100,000,000)</summary>
-        <div class="server-settings-form">
-          <div style="flex:1; min-width:220px">
-            <label class="field-label" for="serverUrlInput">Server URL</label>
-            <input id="serverUrlInput" type="text" placeholder="https://collatz-scan.example.com" autocomplete="off" />
-          </div>
-          <div style="flex:1; min-width:180px">
-            <label class="field-label" for="serverPasswordInput">Password</label>
-            <input id="serverPasswordInput" type="password" autocomplete="off" />
-          </div>
-          <button id="serverSaveBtn" class="btn-preset" type="button">Save &amp; test</button>
-          <button id="serverClearBtn" class="btn-preset" type="button">Clear</button>
-        </div>
-        <p class="error-text" id="serverSettingsStatus"></p>
-        <p class="server-settings-hint">
-          Ranges up to 100,000,000 always run locally in your browser. A configured server is only
-          used for ranges above that, up to whatever limit it reports.
-        </p>
-      </details>
+      <button class="server-status-line" id="serverSettingsSummary" type="button">Server: not configured (ranges capped at 100,000,000)</button>
 
       <div class="progress-track" id="progressTrack" hidden>
         <div class="progress-fill" id="progressFill"></div>
@@ -217,6 +201,35 @@
     <div class="chart-modal-panel" role="dialog" aria-modal="true" aria-label="Chart, enlarged">
       <button class="chart-modal-close" id="chartModalClose" type="button" aria-label="Close">✕</button>
       <div class="chart-modal-slot" id="chartModalSlot"></div>
+    </div>
+  </div>
+
+  <div class="chart-modal" id="settingsModal" hidden>
+    <div class="chart-modal-backdrop"></div>
+    <div class="chart-modal-panel settings-modal-panel" role="dialog" aria-modal="true" aria-label="Settings">
+      <button class="chart-modal-close" id="settingsModalClose" type="button" aria-label="Close">✕</button>
+      <h2 class="settings-modal-title">Settings</h2>
+
+      <h3 class="settings-section-title">Scan server</h3>
+      <p class="section-desc">
+        Ranges up to 100,000,000 always run locally in your browser. A configured server is only
+        used for ranges above that, up to whatever limit it reports.
+      </p>
+      <div class="server-settings-form">
+        <div style="flex:1; min-width:220px">
+          <label class="field-label" for="serverUrlInput">Server URL</label>
+          <input id="serverUrlInput" type="text" placeholder="https://collatz-scan.example.com" autocomplete="off" />
+        </div>
+        <div style="flex:1; min-width:180px">
+          <label class="field-label" for="serverPasswordInput">Password</label>
+          <input id="serverPasswordInput" type="password" autocomplete="off" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="serverSaveBtn" class="btn-preset" type="button">Save &amp; test</button>
+        <button id="serverClearBtn" class="btn-preset" type="button">Clear</button>
+      </div>
+      <p class="error-text" id="serverSettingsStatus"></p>
     </div>
   </div>
 
