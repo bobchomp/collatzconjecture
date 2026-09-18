@@ -1,7 +1,7 @@
 /**
  * Gates the whole app behind Supabase Auth. There is no self sign-up --
  * accounts are created manually in the Supabase dashboard -- so this
- * only handles sign-in (password or magic link) and sign-out.
+ * only handles sign-in (password) and sign-out.
  *
  * The client-side gate is a UX/convenience boundary, not the real
  * security boundary: anyone can read this file's source, same as any
@@ -28,7 +28,6 @@
   const authPassword = document.getElementById("authPassword");
   const authStatus = document.getElementById("authStatus");
   const authSignInBtn = document.getElementById("authSignInBtn");
-  const authMagicLinkBtn = document.getElementById("authMagicLinkBtn");
   const signOutBtn = document.getElementById("signOutBtn");
 
   function setStatus(message, isError) {
@@ -65,23 +64,6 @@
     authSignInBtn.disabled = false;
     authSignInBtn.textContent = "Sign in";
     if (error) setStatus(error.message, true);
-  });
-
-  authMagicLinkBtn.addEventListener("click", async () => {
-    const email = authEmail.value.trim();
-    if (!email) {
-      setStatus("Enter your email above first.", true);
-      return;
-    }
-    setStatus("", false);
-    authMagicLinkBtn.disabled = true;
-    const { error } = await client.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.origin + window.location.pathname },
-    });
-    authMagicLinkBtn.disabled = false;
-    if (error) setStatus(error.message, true);
-    else setStatus("Check your email for a sign-in link.", false);
   });
 
   signOutBtn.addEventListener("click", () => client.auth.signOut());

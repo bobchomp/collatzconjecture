@@ -25,14 +25,6 @@ no self-serve sign-up flow at all — accounts only exist if you create them.
 there (skip the invite-email flow unless you want it) — that's the account
 someone signs in with on the site. Repeat for anyone else who needs access.
 
-## 4. Allow the site's URL for magic links
-
-**Authentication → URL Configuration → Redirect URLs**, add:
-- `https://collatz.rossmackenzie.co.uk`
-- `https://bobchomp.github.io` (if that URL is ever used directly)
-
-Without this, clicking a magic-link email will fail to complete sign-in.
-
 ## What's actually protecting what
 
 - **The auth gate** (sign in to see the app at all) is a client-side
