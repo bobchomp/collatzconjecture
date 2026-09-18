@@ -320,5 +320,135 @@
     };
   }
 
-  global.Charts = { LineChart, ScatterChart, formatCompact };
+  /**
+   * Histogram for the distribution of a value across a range scan.
+   * `bins` is [{x0, x1, count}, ...] with contiguous, equal-width
+   * ranges. Bars are the hit target (no crosshair, per a bar chart's
+   * interaction spec) since each one is a discrete category.
+   */
+  function BarChart(canvas, tooltipEl) {
+    let bins = [];
+
+    function render() {
+      const { ctx, width, height } = setupCanvas(canvas);
+      ctx.clearRect(0, 0, width, height);
+      if (bins.length === 0) return;
+
+      const seriesColor = cssVar(canvas, "--series-1") || "#2a78d6";
+      const gridColor = cssVar(canvas, "--gridline") || "#e1e0d9";
+      const axisColor = cssVar(canvas, "--axis") || "#c3c2b7";
+      const textColor = cssVar(canvas, "--text-muted") || "#898781";
+
+      const plotW = width - PAD.left - PAD.right;
+      const plotH = height - PAD.top - PAD.bottom;
+
+      let maxCount = 1;
+      for (const b of bins) if (b.count > maxCount) maxCount = b.count;
+      const xMin = bins[0].x0;
+      const xMax = bins[bins.length - 1].x1;
+
+      const xToPx = (x) => PAD.left + ((x - xMin) / (xMax - xMin || 1)) * plotW;
+      const yToPx = (y) => PAD.top + plotH - (y / maxCount) * plotH;
+
+      ctx.strokeStyle = gridColor;
+      ctx.lineWidth = 1;
+      ctx.fillStyle = textColor;
+      ctx.font = "11px 'Poppins', system-ui, -apple-system, sans-serif";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      niceTicks(0, maxCount, 5).forEach((t) => {
+        const py = yToPx(t);
+        ctx.beginPath();
+        ctx.moveTo(PAD.left, py);
+        ctx.lineTo(width - PAD.right, py);
+        ctx.stroke();
+        ctx.fillText(formatCompact(t), PAD.left - 8, py);
+      });
+
+      ctx.strokeStyle = axisColor;
+      ctx.beginPath();
+      ctx.moveTo(PAD.left, PAD.top + plotH);
+      ctx.lineTo(width - PAD.right, PAD.top + plotH);
+      ctx.stroke();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      const labelEvery = Math.max(1, Math.ceil(bins.length / 8));
+      bins.forEach((b, i) => {
+        if (i % labelEvery === 0) ctx.fillText(formatCompact(b.x0), xToPx(b.x0), PAD.top + plotH + 8);
+      });
+
+      const slotW = plotW / bins.length;
+      const barW = Math.max(1, Math.min(24, slotW - 2));
+      ctx.fillStyle = seriesColor;
+      bins.forEach((b) => {
+        if (b.count <= 0) return;
+        const slotCenter = (xToPx(b.x0) + xToPx(b.x1)) / 2;
+        const barLeft = slotCenter - barW / 2;
+        const barTop = yToPx(b.count);
+        const barBottom = PAD.top + plotH;
+        const barH = barBottom - barTop;
+        const r = Math.max(0, Math.min(4, barW / 2, barH));
+        ctx.beginPath();
+        ctx.moveTo(barLeft, barBottom);
+        ctx.lineTo(barLeft, barTop + r);
+        ctx.arcTo(barLeft, barTop, barLeft + r, barTop, r);
+        ctx.lineTo(barLeft + barW - r, barTop);
+        ctx.arcTo(barLeft + barW, barTop, barLeft + barW, barTop + r, r);
+        ctx.lineTo(barLeft + barW, barBottom);
+        ctx.closePath();
+        ctx.fill();
+      });
+
+      canvas._chartGeom = { xToPx, yToPx, xMin, xMax, plotW, plotH };
+    }
+
+    function handleMove(evt) {
+      if (!canvas._chartGeom || bins.length === 0) {
+        if (tooltipEl) tooltipEl.hidden = true;
+        return;
+      }
+      const rect = canvas.getBoundingClientRect();
+      const mx = evt.clientX - rect.left;
+      const { xMin, xMax, plotW, yToPx, xToPx } = canvas._chartGeom;
+      const frac = Math.min(1, Math.max(0, (mx - PAD.left) / plotW));
+      const targetX = xMin + frac * (xMax - xMin);
+      let bin = bins[bins.length - 1];
+      for (const b of bins) {
+        if (targetX >= b.x0 && targetX < b.x1) {
+          bin = b;
+          break;
+        }
+      }
+      if (!tooltipEl) return;
+      const cx = (xToPx(bin.x0) + xToPx(bin.x1)) / 2;
+      tooltipEl.hidden = false;
+      tooltipEl.style.left = cx + "px";
+      tooltipEl.style.top = yToPx(bin.count) + "px";
+      tooltipEl.innerHTML = "";
+      const strong = document.createElement("div");
+      strong.className = "tooltip-value";
+      strong.textContent = bin.count.toLocaleString() + (bin.count === 1 ? " number" : " numbers");
+      const sub = document.createElement("div");
+      sub.className = "tooltip-label";
+      sub.textContent = formatCompact(bin.x0) + "–" + formatCompact(bin.x1) + " steps";
+      tooltipEl.appendChild(strong);
+      tooltipEl.appendChild(sub);
+    }
+
+    canvas.addEventListener("pointermove", handleMove);
+    canvas.addEventListener("pointerleave", () => {
+      if (tooltipEl) tooltipEl.hidden = true;
+    });
+    window.addEventListener("resize", () => render());
+
+    return {
+      setData(newBins) {
+        bins = newBins;
+        render();
+      },
+      render,
+    };
+  }
+
+  global.Charts = { LineChart, ScatterChart, BarChart, formatCompact };
 })(window);

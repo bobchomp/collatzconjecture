@@ -157,12 +157,16 @@
   const scatterControls = document.getElementById("scatterControls");
   const scatterChartFigure = document.getElementById("scatterChartFigure");
   const scatterYAxisTitle = document.getElementById("scatterYAxisTitle");
+  const histogramControls = document.getElementById("histogramControls");
+  const histogramChartFigure = document.getElementById("histogramChartFigure");
   const recordTabs = document.getElementById("recordTabs");
   const tableSteps = document.getElementById("recordsTableSteps");
   const tablePeak = document.getElementById("recordsTablePeak");
 
   const LOCAL_MAX_RANGE_END = 100000000;
+  const HISTOGRAM_BIN_COUNT = 30;
   const scatterChart = Charts.ScatterChart(document.getElementById("scatterChart"), document.getElementById("scatterTooltip"));
+  const histogramChart = Charts.BarChart(document.getElementById("histogramChart"), document.getElementById("histogramTooltip"));
   let scatterMode = "steps";
   let scatterRevealFraction = 0;
   let lastScatterRedrawTime = 0;
@@ -349,6 +353,34 @@
     scatterChart.setData(points.slice(0, visibleCount), scatterMode === "steps" ? "steps" : "peak");
   }
 
+  /** Bins the same sampled steps values the scatter chart uses --
+   *  reveals the same left-to-right progression, just re-shaped into a
+   *  frequency distribution instead of steps-vs-starting-number. */
+  function computeHistogramBins(points, numBins) {
+    if (points.length === 0) return [];
+    let maxSteps = 1;
+    for (const p of points) if (p.y > maxSteps) maxSteps = p.y;
+    const binWidth = Math.max(1, Math.ceil(maxSteps / numBins));
+    const bins = [];
+    for (let i = 0; i < numBins; i++) bins.push({ x0: i * binWidth, x1: (i + 1) * binWidth, count: 0 });
+    for (const p of points) {
+      const idx = Math.min(numBins - 1, Math.floor(p.y / binWidth));
+      bins[idx].count++;
+    }
+    return bins;
+  }
+
+  function updateHistogram() {
+    const visibleCount =
+      scanPointsSteps.length === 0 ? 0 : Math.max(1, Math.ceil(scanPointsSteps.length * scatterRevealFraction));
+    histogramChart.setData(computeHistogramBins(scanPointsSteps.slice(0, visibleCount), HISTOGRAM_BIN_COUNT));
+  }
+
+  function updateCharts() {
+    updateScatter();
+    updateHistogram();
+  }
+
   /** Sampled independently of scan progress -- cheap enough (bounded to
    *  ~60,000 calls regardless of range size) to compute upfront, then
    *  revealed left-to-right in step with the real scan's progress. */
@@ -435,7 +467,9 @@
     progressMeta.hidden = false;
     scatterControls.hidden = false;
     scatterChartFigure.hidden = false;
-    updateScatter();
+    histogramControls.hidden = false;
+    histogramChartFigure.hidden = false;
+    updateCharts();
     recordTabs.hidden = true;
     tableSteps.hidden = true;
     tablePeak.hidden = true;
@@ -552,7 +586,7 @@
       scatterRevealFraction = msg.processed / msg.total;
       const now = Date.now();
       if (now - lastScatterRedrawTime >= SCATTER_REDRAW_INTERVAL_MS) {
-        updateScatter();
+        updateCharts();
         lastScatterRedrawTime = now;
       }
     }
@@ -561,7 +595,7 @@
       setScanningUI(false);
       progressFill.style.width = "100%";
       scatterRevealFraction = 1;
-      updateScatter();
+      updateCharts();
       lastScatterRedrawTime = Date.now();
 
       recordTabs.hidden = false;
@@ -638,6 +672,7 @@
 
   wireFullscreenButton("lineFullscreenBtn", lineChart);
   wireFullscreenButton("scatterFullscreenBtn", scatterChart);
+  wireFullscreenButton("histogramFullscreenBtn", histogramChart);
 
   // ---------- Settings popup ----------
   const settingsBtn = document.getElementById("settingsBtn");

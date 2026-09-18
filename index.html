@@ -130,6 +130,21 @@
         <div class="axis-title-x">Starting number</div>
       </div>
 
+      <div class="chart-controls" id="histogramControls" hidden>
+        <span class="legend-line"><span class="legend-swatch"></span> Distribution of trajectory lengths</span>
+      </div>
+      <div class="chart-figure" id="histogramChartFigure" hidden>
+        <div class="chart-body">
+          <div class="axis-title-y">Numbers</div>
+          <div class="chart-wrap" id="histogramChartWrap">
+            <button class="fullscreen-btn" id="histogramFullscreenBtn" type="button" aria-label="View chart larger" title="View larger">⤢</button>
+            <canvas id="histogramChart"></canvas>
+            <div class="tooltip" id="histogramTooltip" hidden></div>
+          </div>
+        </div>
+        <div class="axis-title-x">Steps to reach 1</div>
+      </div>
+
       <div class="tabs" id="recordTabs" hidden>
         <button class="tab-btn" data-tab="steps" aria-selected="true" type="button">Longest trajectories</button>
         <button class="tab-btn" data-tab="peak" aria-selected="false" type="button">Highest peaks</button>
