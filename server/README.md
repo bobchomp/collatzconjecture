@@ -31,25 +31,46 @@ free for other things on the same box.
 
 ## How big a range can I actually run?
 
-Memory scales with the range's end value at ~6 bytes per number (a Uint16
-for step count, a Float32 for peak value -- verified against the exact
-Float64 version: step counts are always exact, peak values are off by at
-most ~6e-8 relative error, irrelevant for a "highest peak found" display).
-This is unaffected by thread count -- the cache is shared, not duplicated.
+The memoization cache -- not the range itself -- is what costs memory, at
+~6 bytes per number it covers (a Uint16 for step count, a Float32 for peak
+value -- verified against the exact Float64 version: step counts are always
+exact, peak values are off by at most ~6e-8 relative error, irrelevant for
+a "highest peak found" display). `CACHE_CEILING` sets how far that cache
+reaches; `MAX_RANGE_END` sets how far a scan is allowed to go. They don't
+have to match.
 
-| End value | Memory needed | Time, 1 thread | Time, 4 threads |
-|---|---|---|---|
-| 100,000,000 | ~0.6GB | ~15s | ~5s |
-| 500,000,000 | ~3GB | ~75s | ~26s |
-| 1,000,000,000 | ~6GB | ~2.5 min | ~52s |
+A trajectory starting above `CACHE_CEILING` just gets walked raw (no
+cache lookups) until it drops to a value at or below the ceiling, which
+almost always happens within a handful of steps -- so it's still correct,
+just doing a bit more work per number the further above the ceiling it
+starts. `MAX_RANGE_END` can be set to many times `CACHE_CEILING` and still
+run entirely within whatever memory `CACHE_CEILING` requires; you're
+trading scan time for memory instead of being capped by it.
 
-(The 4-thread column is extrapolated from the measured 2.9x factor above
-100M/150M; times on your actual hardware will depend on core count and
-per-core speed.)
+| CACHE_CEILING | Memory needed | Time for a scan to that value, 4 threads |
+|---|---|---|
+| 100,000,000 | ~0.6GB | ~5s |
+| 500,000,000 | ~3GB | ~26s |
+| 1,000,000,000 | ~6GB | ~52s |
+| 2,000,000,000 | ~12GB | ~1.7 min |
 
-Set `MAX_RANGE_END` to whatever your hardware can actually hold, and give
-the container at least 2GB of headroom above the number in that table (via
-`mem_limit` in `docker-compose.yml`) for Node's own overhead.
+Measured cost of scanning *past* the ceiling (4 threads, real benchmark):
+scanning to 1,000,000,000 with `CACHE_CEILING=1000000000` (the old
+behavior, cache == range) took 52s; scanning the same 1,000,000,000 range
+with `CACHE_CEILING=100000000` (10x smaller) took 172s -- about 3.3x
+slower. That factor grows (slowly, roughly logarithmically) the further
+the scan's end is past the ceiling, and shrinks the closer they are.
+Rule of thumb: keep `MAX_RANGE_END` within about 10x of `CACHE_CEILING`
+for scan times in the same ballpark as the table above; going further
+(e.g. 100x) works and stays correct, but expect several times slower
+still, so test at the size you actually plan to run rather than assuming
+it scales cleanly to arbitrary multiples.
+
+Set `CACHE_CEILING` to whatever your hardware can actually hold in RAM
+(give the container at least 2GB of headroom above that number via
+`mem_limit` in `docker-compose.yml` for Node's own overhead), and set
+`MAX_RANGE_END` separately based on how long you're willing to let a
+worst-case scan run.
 
 ## Deploying on your Ubuntu box
 
@@ -67,8 +88,8 @@ the container at least 2GB of headroom above the number in that table (via
    cp .env.example .env
    # edit .env: set SCAN_API_PASSWORD to something long and random --
    # this is the only thing stopping a stranger from running scans on
-   # your hardware. Adjust MAX_RANGE_END if your box has less than
-   # ~8GB free (see table above).
+   # your hardware. Adjust CACHE_CEILING if your box has less than
+   # ~8GB free (see table above); MAX_RANGE_END can stay much higher.
    ```
 
 4. **Start it**:

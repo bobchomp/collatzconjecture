@@ -9,6 +9,15 @@
  * Returns a `cancel()` function rather than polling an isAborted()
  * flag, since cancellation here means actually terminating worker
  * threads, not just breaking a loop.
+ *
+ * The cache doesn't have to cover the whole [start, end] range --
+ * algo.js only caches/looks up values <= cacheCeiling and just walks
+ * the raw trajectory (uncached) above that. Since a trajectory
+ * starting well above cacheCeiling still falls below it within a
+ * handful of halvings almost always, this keeps memory bounded by
+ * cacheCeiling alone, letting `end` go far higher than memory would
+ * otherwise allow -- at the cost of some lost cache reuse among
+ * numbers that never dip below the ceiling.
  */
 const path = require("path");
 const { Worker } = require("worker_threads");
@@ -28,8 +37,8 @@ function splitRange(start, end, numWorkers) {
   return ranges.filter(([s, e]) => e >= s);
 }
 
-function runScan(start, end, stepLimit, numWorkers, { onProgress, onDone }) {
-  const cacheCeiling = end;
+function runScan(start, end, stepLimit, numWorkers, { onProgress, onDone, cacheCeiling = end }) {
+  cacheCeiling = Math.min(cacheCeiling, end);
   const sharedStepsBuffer = new SharedArrayBuffer((cacheCeiling + 1) * 2); // Uint16
   const sharedPeakBuffer = new SharedArrayBuffer((cacheCeiling + 1) * 4); // Float32
 
