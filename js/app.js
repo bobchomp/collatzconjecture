@@ -593,6 +593,26 @@
 
     if (msg.type === "done") {
       setScanningUI(false);
+
+      if (msg.error) {
+        // The server hit an unrecoverable error mid-scan (e.g. couldn't
+        // allocate its cache) -- msg.processed is whatever partial work
+        // happened before that, not a real result. Showing the charts
+        // and a "no counterexamples" banner off that would be actively
+        // misleading, so clear everything back to the pre-scan state
+        // instead of revealing sample data for a scan that didn't run.
+        progressTrack.hidden = true;
+        progressMeta.hidden = true;
+        scanStats.hidden = true;
+        scatterControls.hidden = true;
+        scatterChartFigure.hidden = true;
+        histogramControls.hidden = true;
+        histogramChartFigure.hidden = true;
+        scanBanner.innerHTML = "";
+        scanError.textContent = `Scan failed on the server: ${msg.error}`;
+        return;
+      }
+
       progressFill.style.width = "100%";
       scatterRevealFraction = 1;
       updateCharts();
