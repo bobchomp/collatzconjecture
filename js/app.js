@@ -162,6 +162,8 @@
   const recordTabs = document.getElementById("recordTabs");
   const tableSteps = document.getElementById("recordsTableSteps");
   const tablePeak = document.getElementById("recordsTablePeak");
+  const saveScanBtn = document.getElementById("saveScanBtn");
+  const saveScanInlineStatus = document.getElementById("saveScanInlineStatus");
 
   const LOCAL_MAX_RANGE_END = 100000000;
   const HISTOGRAM_BIN_COUNT = 30;
@@ -175,6 +177,7 @@
   let lastTopPeak = [];
   let scanPointsSteps = [];
   let scanPointsPeak = [];
+  let lastCompletedScan = null; // populated on a successful "done"; cleared whenever a new scan starts
 
   let worker = null;
   let scanStartTime = 0;
@@ -431,6 +434,9 @@
   function startScan() {
     scanError.textContent = "";
     scanBanner.innerHTML = "";
+    saveScanBtn.hidden = true;
+    saveScanInlineStatus.textContent = "";
+    lastCompletedScan = null;
     const start = Math.floor(Number(rangeStart.value));
     const end = Math.floor(Number(rangeEnd.value));
     const stepLimit = Math.floor(Number(stepLimitInput.value));
@@ -635,6 +641,23 @@
       }
       scanBanner.innerHTML = "";
       scanBanner.appendChild(banner);
+
+      lastCompletedScan = {
+        start,
+        end,
+        stepLimit: Math.floor(Number(stepLimitInput.value)),
+        processed: msg.processed,
+        elapsed: msg.elapsed,
+        maxSteps: msg.maxSteps,
+        maxPeak: msg.maxPeak,
+        topSteps: msg.topSteps,
+        topPeak: msg.topPeak,
+        anomalyCount: msg.anomalies.length,
+        scatterSteps: scanPointsSteps,
+        scatterPeak: scanPointsPeak,
+      };
+      saveScanBtn.hidden = false;
+      saveScanInlineStatus.textContent = "";
     }
 
     if (msg.type === "stopped") {
@@ -721,6 +744,89 @@
   settingsModal.querySelector(".chart-modal-backdrop").addEventListener("click", closeSettingsModal);
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !settingsModal.hidden) closeSettingsModal();
+  });
+
+  // ---------- Save scan popup ----------
+  const saveScanModal = document.getElementById("saveScanModal");
+  const saveScanModalClose = document.getElementById("saveScanModalClose");
+  const saveScanNameInput = document.getElementById("saveScanNameInput");
+  const saveScanConfirmBtn = document.getElementById("saveScanConfirmBtn");
+  const saveScanCancelBtn = document.getElementById("saveScanCancelBtn");
+  const saveScanStatus = document.getElementById("saveScanStatus");
+
+  function openSaveScanModal() {
+    saveScanNameInput.value = "";
+    saveScanStatus.textContent = "";
+    saveScanModal.hidden = false;
+    document.body.style.overflow = "hidden";
+    saveScanNameInput.focus();
+  }
+
+  function closeSaveScanModal() {
+    if (saveScanModal.hidden) return;
+    saveScanModal.hidden = true;
+    document.body.style.overflow = "";
+    saveScanBtn.focus();
+  }
+
+  saveScanBtn.addEventListener("click", openSaveScanModal);
+  saveScanModalClose.addEventListener("click", closeSaveScanModal);
+  saveScanCancelBtn.addEventListener("click", closeSaveScanModal);
+  saveScanModal.querySelector(".chart-modal-backdrop").addEventListener("click", closeSaveScanModal);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !saveScanModal.hidden) closeSaveScanModal();
+  });
+
+  saveScanConfirmBtn.addEventListener("click", async () => {
+    const name = saveScanNameInput.value.trim();
+    if (!name) {
+      saveScanStatus.textContent = "Enter a name for this scan.";
+      return;
+    }
+    if (!lastCompletedScan) {
+      saveScanStatus.textContent = "No completed scan to save.";
+      return;
+    }
+    const client = window.CollatzAuth && window.CollatzAuth.client;
+    if (!client) {
+      saveScanStatus.textContent = "Not signed in.";
+      return;
+    }
+    saveScanConfirmBtn.disabled = true;
+    saveScanConfirmBtn.textContent = "Saving…";
+    saveScanStatus.textContent = "";
+    try {
+      const { data: userData } = await client.auth.getUser();
+      if (!userData || !userData.user) throw new Error("Not signed in.");
+      const s = lastCompletedScan;
+      const { error } = await client.from("saved_scans").insert({
+        user_id: userData.user.id,
+        name,
+        range_start: s.start,
+        range_end: s.end,
+        step_limit: s.stepLimit,
+        processed: s.processed,
+        elapsed_ms: s.elapsed,
+        max_steps_n: s.maxSteps.n,
+        max_steps_value: s.maxSteps.steps,
+        max_peak_n: s.maxPeak.n,
+        max_peak_value: s.maxPeak.peak,
+        top_steps: s.topSteps,
+        top_peak: s.topPeak,
+        anomaly_count: s.anomalyCount,
+        scatter_steps: s.scatterSteps.map((p) => [p.x, p.y]),
+        scatter_peak: s.scatterPeak.map((p) => [p.x, p.y]),
+      });
+      if (error) throw error;
+      closeSaveScanModal();
+      saveScanInlineStatus.style.color = "var(--good-text)";
+      saveScanInlineStatus.textContent = `Saved as "${name}" — view it anytime from Saved Scans.`;
+    } catch (err) {
+      saveScanStatus.textContent = "Couldn't save: " + (err.message || "unknown error");
+    } finally {
+      saveScanConfirmBtn.disabled = false;
+      saveScanConfirmBtn.textContent = "Save";
+    }
   });
 
   // Canvas text doesn't repaint on its own once a web font finishes

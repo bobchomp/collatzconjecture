@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Saved Scans · Collatz Conjecture Explorer</title>
+<meta name="description" content="Previously saved Collatz range-scan results." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="auth-gate" id="authGate">
+    <div class="auth-gate-panel">
+      <h1>Collatz Conjecture Explorer</h1>
+      <form id="authForm">
+        <label class="field-label" for="authEmail">Email</label>
+        <input id="authEmail" type="email" autocomplete="username" required />
+        <label class="field-label" for="authPassword" style="margin-top:10px">Password</label>
+        <input id="authPassword" type="password" autocomplete="current-password" />
+        <button id="authSignInBtn" class="btn" type="submit" style="margin-top:14px; width:100%">Sign in</button>
+      </form>
+      <p class="error-text" id="authStatus"></p>
+    </div>
+  </div>
+
+  <div class="page" id="pageContent" hidden>
+    <header class="topbar">
+      <div class="brand">
+        <h1><a href="index.html" style="color:inherit; text-decoration:none">Collatz Conjecture Explorer</a></h1>
+        <p class="tagline">Saved Scans — past range verifications, stored in your account so you can look back at them without re-running.</p>
+      </div>
+      <div class="topbar-actions">
+        <a href="index.html" class="theme-toggle">← Back to Explorer</a>
+        <button id="themeToggle" class="theme-toggle" type="button">Theme: System</button>
+        <button id="signOutBtn" class="theme-toggle" type="button">Sign out</button>
+      </div>
+    </header>
+
+    <section class="card" id="savedScansCard">
+      <h2>Saved Scans</h2>
+      <p class="section-desc" id="savedScansEmpty">
+        No saved scans yet — run a range scan on the Explorer page and click "Save this scan" to
+        keep it here.
+      </p>
+      <div id="savedScansList"></div>
+    </section>
+
+    <section class="card" id="savedScanDetail" hidden>
+      <div class="row" style="justify-content:space-between; align-items:flex-start">
+        <div>
+          <h2 id="detailName">–</h2>
+          <p class="section-desc" id="detailMeta"></p>
+        </div>
+        <button class="btn-preset" id="detailCloseBtn" type="button">✕ Close</button>
+      </div>
+
+      <div id="detailBanner"></div>
+
+      <div class="stat-row">
+        <div class="stat-tile">
+          <div class="label">Numbers verified</div>
+          <div class="value" id="detailCount">–</div>
+        </div>
+        <div class="stat-tile">
+          <div class="label">Longest trajectory</div>
+          <div class="value small" id="detailMaxSteps">–</div>
+        </div>
+        <div class="stat-tile">
+          <div class="label">Highest peak</div>
+          <div class="value small" id="detailMaxPeak">–</div>
+        </div>
+        <div class="stat-tile">
+          <div class="label">Elapsed</div>
+          <div class="value" id="detailElapsed">–</div>
+        </div>
+      </div>
+
+      <div class="chart-controls" id="detailScatterControls">
+        <span class="legend-line"><span class="legend-swatch"></span> <span id="detailScatterLegendLabel">Steps per starting number</span></span>
+        <button class="toggle-chip" id="detailScatterModeSteps" type="button" aria-pressed="true">Steps</button>
+        <button class="toggle-chip" id="detailScatterModePeak" type="button" aria-pressed="false">Peak value</button>
+      </div>
+      <div class="chart-figure" id="detailScatterFigure">
+        <div class="chart-body">
+          <div class="axis-title-y" id="detailScatterYAxisTitle">Steps</div>
+          <div class="chart-wrap">
+            <button class="fullscreen-btn" id="detailScatterFullscreenBtn" type="button" aria-label="View chart larger" title="View larger">⤢</button>
+            <canvas id="detailScatterChart"></canvas>
+            <div class="tooltip" id="detailScatterTooltip" hidden></div>
+          </div>
+        </div>
+        <div class="axis-title-x">Starting number</div>
+      </div>
+
+      <div class="chart-controls">
+        <span class="legend-line"><span class="legend-swatch"></span> Distribution of trajectory lengths</span>
+      </div>
+      <div class="chart-figure" id="detailHistogramFigure">
+        <div class="chart-body">
+          <div class="axis-title-y">Numbers</div>
+          <div class="chart-wrap">
+            <button class="fullscreen-btn" id="detailHistogramFullscreenBtn" type="button" aria-label="View chart larger" title="View larger">⤢</button>
+            <canvas id="detailHistogramChart"></canvas>
+            <div class="tooltip" id="detailHistogramTooltip" hidden></div>
+          </div>
+        </div>
+        <div class="axis-title-x">Steps to reach 1</div>
+      </div>
+
+      <div class="tabs" id="detailRecordTabs">
+        <button class="tab-btn" data-tab="steps" aria-selected="true" type="button">Longest trajectories</button>
+        <button class="tab-btn" data-tab="peak" aria-selected="false" type="button">Highest peaks</button>
+      </div>
+      <table class="records" id="detailRecordsTableSteps">
+        <thead><tr><th>Starting number</th><th>Steps</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <table class="records" id="detailRecordsTablePeak" hidden>
+        <thead><tr><th>Starting number</th><th>Peak value</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </div>
+
+  <div class="chart-modal" id="chartModal" hidden>
+    <div class="chart-modal-backdrop"></div>
+    <div class="chart-modal-panel" role="dialog" aria-modal="true" aria-label="Chart, enlarged">
+      <button class="chart-modal-close" id="chartModalClose" type="button" aria-label="Close">✕</button>
+      <div class="chart-modal-slot" id="chartModalSlot"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/saved-scans.js"></script>
+</body>
+</html>

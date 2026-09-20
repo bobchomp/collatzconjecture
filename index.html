@@ -32,6 +32,7 @@
         <p class="tagline">Trace individual trajectories and exhaustively verify ranges of integers — the same kind of empirical search researchers run, just in your browser tab.</p>
       </div>
       <div class="topbar-actions">
+        <a href="saved-scans.html" class="theme-toggle" id="savedScansLink">📁 Saved Scans</a>
         <button id="settingsBtn" class="theme-toggle" type="button" aria-haspopup="dialog">⚙ Settings</button>
         <button id="themeToggle" class="theme-toggle" type="button">Theme: System</button>
         <button id="signOutBtn" class="theme-toggle" type="button">Sign out</button>
@@ -89,6 +90,9 @@
       </div>
 
       <div id="scanBanner"></div>
+
+      <button class="btn-preset" id="saveScanBtn" type="button" hidden>💾 Save this scan</button>
+      <p class="error-text" id="saveScanInlineStatus"></p>
 
       <div class="stat-row" id="scanStats" hidden>
         <div class="stat-tile">
@@ -260,6 +264,27 @@
         <button id="serverClearBtn" class="btn-preset" type="button">Clear</button>
       </div>
       <p class="error-text" id="serverSettingsStatus"></p>
+    </div>
+  </div>
+
+  <div class="chart-modal" id="saveScanModal" hidden>
+    <div class="chart-modal-backdrop"></div>
+    <div class="chart-modal-panel settings-modal-panel" role="dialog" aria-modal="true" aria-label="Save this scan">
+      <button class="chart-modal-close" id="saveScanModalClose" type="button" aria-label="Close">✕</button>
+      <h2 class="settings-modal-title">Save this scan</h2>
+      <p class="section-desc">
+        Stores the full result — charts, records and all — in your account so you can look back at
+        it later from Saved Scans, without re-running it.
+      </p>
+      <div>
+        <label class="field-label" for="saveScanNameInput">Name</label>
+        <input id="saveScanNameInput" type="text" autocomplete="off" placeholder="e.g. First 20 billion" />
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button id="saveScanConfirmBtn" class="btn" type="button">Save</button>
+        <button id="saveScanCancelBtn" class="btn-preset" type="button">Cancel</button>
+      </div>
+      <p class="error-text" id="saveScanStatus"></p>
     </div>
   </div>
 

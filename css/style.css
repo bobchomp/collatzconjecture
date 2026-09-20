@@ -141,6 +141,12 @@ body {
   border-color: var(--axis);
 }
 
+a.theme-toggle {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
 .card {
   background: var(--surface-1);
   border: 1px solid var(--border);
@@ -697,6 +703,41 @@ table.records th {
   background: var(--series-1);
   display: inline-block;
   border-radius: 2px;
+}
+
+.saved-scan-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--page-plane);
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.saved-scan-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.saved-scan-row-name {
+  font-weight: 600;
+}
+
+.saved-scan-row-meta {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.saved-scan-row-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 @media (max-width: 560px) {
